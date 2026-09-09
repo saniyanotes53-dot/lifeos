@@ -29,7 +29,11 @@ export async function loginWithGoogle() {
 }
 
 export async function resetPassword(email) {
-  await sendPasswordResetEmail(auth, email);
+  const actionCodeSettings = {
+    url: window.location.origin + "/#/login",
+    handleCodeInApp: false,
+  };
+  await sendPasswordResetEmail(auth, email, actionCodeSettings);
 }
 
 export async function logout() {
