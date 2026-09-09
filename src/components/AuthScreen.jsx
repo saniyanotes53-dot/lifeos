@@ -32,8 +32,12 @@ export default function AuthScreen({ t, onLogin }) {
         return "Please enter a valid email address.";
       case "auth/popup-closed-by-user":
         return "Google sign-in popup was closed before completion.";
+      case "auth/unauthorized-domain": {
+        const hostname = typeof window !== "undefined" ? window.location.hostname : "this website";
+        return `Firebase is blocking sign-in from ${hostname}. Add this domain in Firebase Console → Authentication → Settings → Authorized domains, then reload the website.`;
+      }
       default:
-        return e.message || "An unexpected error occurred. Please try again.";
+        return "Sign-in could not be completed. Check your Firebase Authentication settings and try again.";
     }
   };
 
