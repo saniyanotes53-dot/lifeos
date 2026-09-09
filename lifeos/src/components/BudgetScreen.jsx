@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import {
   Upload, TrendingUp, Flame, Wallet, CreditCard, Banknote, ArrowRight,
   Plus, Sparkles, PieChart as PieIcon, BarChart3, ChevronRight, X,
-  ArrowUpRight, ArrowDownLeft, Sliders, Users, Check, RefreshCw, AlertCircle, FileText
+  ArrowUpRight, ArrowDownLeft, Sliders, Check, RefreshCw, AlertCircle
 } from "lucide-react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
@@ -226,7 +226,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
     setInsightsLoading(true);
     // Synthetic analysis grounded in real data
     setTimeout(() => {
-      const topCat = byCat.sort((a, b) => b.value - a.value)[0];
+      const topCat = [...byCat].sort((a, b) => b.value - a.value)[0];
       const avgSpent = (thisMonthSpent / (new Date().getDate() || 1)).toFixed(0);
 
       setAiInsights({

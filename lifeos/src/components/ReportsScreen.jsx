@@ -11,11 +11,18 @@ import { ProgressOverviewCard } from "./ProgressBars";
 
 export default function ReportsScreen({ t, tasks = [], sleep = [], tx = [] }) {
   const [range, setRange] = useState("week");
-  const doneCount = tasks.filter(x => x.done).length;
-  const avgSleep = sleep.length ? (sleep.reduce((s, x) => s + (Number(x.hours) || 0), 0) / sleep.length).toFixed(1) : 0;
-  const spent = tx.filter(x => x.type === "expense").reduce((s, x) => s + (Number(x.amount) || 0), 0);
-  const income = tx.filter(x => x.type === "income").reduce((s, x) => s + (Number(x.amount) || 0), 0);
-  const daily = Object.values(tx.reduce((acc, x) => {
+  const daysCount = range === "week" ? 7 : 30;
+  const cutoff = new Date(Date.now() - daysCount * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const periodTasks = tasks.filter(x => !x.date || x.date >= cutoff);
+  const periodSleep = sleep.filter(x => !x.date || x.date >= cutoff);
+  const periodTx = tx.filter(x => !x.date || x.date >= cutoff);
+
+  const doneCount = periodTasks.filter(x => x.done).length;
+  const avgSleep = periodSleep.length ? (periodSleep.reduce((s, x) => s + (Number(x.hours) || 0), 0) / periodSleep.length).toFixed(1) : 0;
+  const spent = periodTx.filter(x => x.type === "expense").reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const income = periodTx.filter(x => x.type === "income").reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const daily = Object.values(periodTx.reduce((acc, x) => {
     if (x.type !== "expense") return acc;
     acc[x.date] = acc[x.date] || { date: x.date, amount: 0 };
     acc[x.date].amount += (Number(x.amount) || 0);

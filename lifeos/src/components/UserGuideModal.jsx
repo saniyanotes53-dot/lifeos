@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  Sparkles, CheckCircle, Clock, Moon, Wallet, Palette, ArrowRight, X, ShieldCheck
+  Sparkles, CheckCircle, Clock, Moon, Wallet, Palette, ArrowRight, X
 } from "lucide-react";
 import { Card, PrimaryButton, GhostButton } from "./primitives";
 

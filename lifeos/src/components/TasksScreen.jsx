@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Plus, Check, X, Calendar, Clock, CheckSquare } from "lucide-react";
+import { Plus, Check, X, Calendar, Clock } from "lucide-react";
 import { inputStyle, todayStr, PRI_KEY } from "../theme";
-import { Card, Screen, Empty, PrimaryButton, GhostButton } from "./primitives";
+import { Card, Screen, Empty, PrimaryButton } from "./primitives";
 import { addItem, updateItem, deleteItem } from "../firestore";
 
 export default function TasksScreen({ t, tasks, userId, timetable = [] }) {
@@ -13,7 +13,8 @@ export default function TasksScreen({ t, tasks, userId, timetable = [] }) {
   const [schedMsg, setSchedMsg] = useState("");
 
   const order = { High: 0, Med: 1, Low: 2 };
-  const sorted = [...tasks].sort((a, b) => (a.done - b.done) || (order[a.priority] - order[b.priority]));
+  const priVal = (p) => order[p] ?? 3;
+  const sorted = [...tasks].sort((a, b) => (a.done - b.done) || (priVal(a.priority) - priVal(b.priority)));
 
   const add = async () => {
     if (!title.trim()) return;

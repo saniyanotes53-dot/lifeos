@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
 import { PALETTES, inputStyle } from "../theme";
 import { Card, Screen, PrimaryButton, GhostButton, SectionLabel } from "./primitives";
-import { resetPassword, logout } from "../auth";
+import { resetPassword } from "../auth";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth } from "../firebase";
 

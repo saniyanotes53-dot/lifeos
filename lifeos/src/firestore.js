@@ -9,18 +9,18 @@ const col = (uid, name) => collection(db, "users", uid, name);
 export function watchCollection(uid, name, onChange, orderField = null) {
   const collectionRef = col(uid, name);
   const q = orderField ? query(collectionRef, orderBy(orderField, "desc")) : collectionRef;
-  
-  return onSnapshot(q, (snap) => {
+  let fallbackUnsub = null;
+  const unsub = onSnapshot(q, (snap) => {
     onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   }, (err) => {
     console.warn(`Query with orderBy('${orderField}') on ${name} encountered an error:`, err);
-    // Graceful fallback to unordered collection snapshot if index is building or field missing
-    if (orderField) {
-      return onSnapshot(collectionRef, (fallbackSnap) => {
+    if (orderField && !fallbackUnsub) {
+      fallbackUnsub = onSnapshot(collectionRef, (fallbackSnap) => {
         onChange(fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       });
     }
   });
+  return () => { unsub(); if (fallbackUnsub) fallbackUnsub(); };
 }
 
 export async function addItem(uid, name, data) {

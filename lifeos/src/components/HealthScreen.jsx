@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Moon, Dumbbell, Utensils, Scale, Flame, Activity, Check,
-  TrendingDown, TrendingUp, Info, Droplets, Target, Sparkles,
+  TrendingDown, TrendingUp, Target, Sparkles,
   Clock, Award, Zap, CheckCircle2, AlertTriangle, Plus, ChevronRight
 } from "lucide-react";
 import {
@@ -42,6 +42,17 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
   const [gender, setGender] = useState(latestMetric.gender || "male");
   const [activity, setActivity] = useState(latestMetric.activity || "1.375"); // Light exercise
   const [saveMsg, setSaveMsg] = useState("");
+
+  // Sync body metrics form when Firestore data arrives
+  useEffect(() => {
+    if (bodyMetrics[0]) {
+      setWeight(String(bodyMetrics[0].weight ?? "72"));
+      setHeight(String(bodyMetrics[0].height ?? "175"));
+      setAge(String(bodyMetrics[0].age ?? "25"));
+      setGender(bodyMetrics[0].gender || "male");
+      setActivity(String(bodyMetrics[0].activity ?? "1.375"));
+    }
+  }, [bodyMetrics]);
 
   // Calculations
   const bmiData = useMemo(() => {
@@ -188,7 +199,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
     const diff = todayCalories - currentGoalPlan.targetCalories;
     if (selectedGoal === "fat_loss") {
       if (diff <= 100) {
-        calorieStatus = { text: `Target Met: ₹${todayCalories} kcal consumed (Within ${currentGoalPlan.targetCalories} limit)`, onTrack: true, badge: "Optimal Deficit" };
+        calorieStatus = { text: `Target Met: ${todayCalories} kcal consumed (Within ${currentGoalPlan.targetCalories} limit)`, onTrack: true, badge: "Optimal Deficit" };
       } else {
         calorieStatus = { text: `${diff} kcal over cutting target`, onTrack: false, badge: "Over Target" };
       }

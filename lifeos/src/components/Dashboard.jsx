@@ -11,8 +11,9 @@ export default function Dashboard({ t, tasks = [], sleep = [], tx = [], name, se
   const todayStr = new Date().toISOString().slice(0, 10);
   const openTasks = tasks.filter(x => !x.done);
   const pct = tasks.length ? Math.round((tasks.filter(x => x.done).length / tasks.length) * 100) : 0;
-  const top = [...openTasks].sort((a, b) => ({ High: 0, Med: 1, Low: 2 }[a.priority] - { High: 0, Med: 1, Low: 2 }[b.priority])).slice(0, 3);
-  const lastSleep = sleep[sleep.length - 1];
+  const priVal = (p) => ({ High: 0, Med: 1, Low: 2 }[p] ?? 3);
+  const top = [...openTasks].sort((a, b) => priVal(a.priority) - priVal(b.priority)).slice(0, 3);
+  const lastSleep = sleep[0];
   const spentToday = tx.filter(x => x.date === todayStr && x.type === "expense").reduce((s, x) => s + (Number(x.amount) || 0), 0);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
