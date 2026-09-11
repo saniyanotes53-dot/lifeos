@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
-import { watchCollection } from "./firestore";
+import { ensureUserProfile, watchCollection } from "./firestore";
 
 import AuthScreen from "./components/AuthScreen";
 import Dashboard from "./components/Dashboard";
@@ -45,6 +45,13 @@ export default function App() {
   }), []);
 
   // First-time login guide trigger
+  useEffect(() => {
+    if (!user?.uid) return;
+    ensureUserProfile(user).catch((error) => {
+      console.error("Unable to create the Firestore user profile:", error);
+    });
+  }, [user]);
+
   useEffect(() => {
     if (user && user.uid) {
       const key = "lifeos_guide_seen_" + user.uid;

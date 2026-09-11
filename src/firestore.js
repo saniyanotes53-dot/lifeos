@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc,
+  collection, doc, addDoc, updateDoc, deleteDoc, setDoc,
   onSnapshot, query, orderBy,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -21,6 +21,14 @@ export function watchCollection(uid, name, onChange, orderField = null) {
     }
   });
   return () => { unsub(); if (fallbackUnsub) fallbackUnsub(); };
+}
+
+export async function ensureUserProfile(user) {
+  return setDoc(doc(db, "users", user.uid), {
+    email: user.email || null,
+    displayName: user.displayName || user.email?.split("@")[0] || "User",
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
 }
 
 export async function addItem(uid, name, data) {
