@@ -1,3 +1,4 @@
+import { Modal } from "./primitives";
 import React, { useState } from "react";
 import {
   Sparkles, CheckCircle, Clock, Moon, Wallet, Palette, ArrowRight, X
@@ -75,7 +76,7 @@ export default function UserGuideModal({ t, isOpen, onClose }) {
   const isLast = step === slides.length - 1;
 
   return (
-    <div style={{
+    <Modal title="Life OS guide" onClose={onClose} style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 999,
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
       backdropFilter: "blur(6px)"
@@ -86,7 +87,7 @@ export default function UserGuideModal({ t, isOpen, onClose }) {
         position: "relative", border: `1.5px solid ${t.line}`
       }}>
         {/* Close Button */}
-        <button
+        <button aria-label="Close dialog"
           onClick={onClose}
           className="press"
           style={{
@@ -151,10 +152,10 @@ export default function UserGuideModal({ t, isOpen, onClose }) {
           {/* Progress dots */}
           <div style={{ display: "flex", gap: 6 }}>
             {slides.map((_, i) => (
-              <div
+              <button type="button"
                 key={i}
                 onClick={() => setStep(i)}
-                style={{
+                style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                   width: step === i ? 20 : 7, height: 7, borderRadius: 4,
                   background: step === i ? t.a1 : t.line,
                   transition: "all 0.25s ease", cursor: "pointer"
@@ -190,6 +191,6 @@ export default function UserGuideModal({ t, isOpen, onClose }) {
           Designed by <strong style={{ color: t.a1 }}>Buraq Studios</strong> · Copyright all rights reserved
         </div>
       </Card>
-    </div>
+    </Modal>
   );
 }

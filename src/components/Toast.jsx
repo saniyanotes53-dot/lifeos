@@ -71,7 +71,7 @@ export function ToastProvider({ children, t }) {
             <div style={{ flex: 1, lineHeight: 1.4 }}>
               {toast.message}
             </div>
-            <button
+            <button aria-label="Close dialog"
               onClick={() => removeToast(toast.id)}
               style={{
                 background: "transparent",

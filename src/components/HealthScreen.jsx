@@ -9,11 +9,13 @@ import {
 } from "recharts";
 import { inputStyle, todayStr, dayName } from "../theme";
 import { Card, Screen, Empty, Segmented, PrimaryButton, GhostButton, Field } from "./primitives";
-import { addItem, updateItem } from "../firestore";
+import { filterPeriod, sleepByDay, nutritionStatus } from "../utils/analytics";
+import { dateRange } from "../utils/dates";
+import { addItem, updateItem, saveSleep } from "../firestore";
 import CopyrightFooter from "./CopyrightFooter";
 
-export default function HealthScreen({ t, sleep = [], workouts = [], meals = [], userId, bodyMetrics = [] }) {
-  const [sub, setSub] = useState("goals"); // "goals", "workout", "diet", "bmi", "sleep"
+export default function HealthScreen({ t, sleep = [], workouts = [], meals = [], userId, bodyMetrics = [], initialView = "goals" }) {
+  const [sub, setSub] = useState(initialView); // "goals", "workout", "diet", "bmi", "sleep"
   const [bed, setBed] = useState("23:30");
   const [wake, setWake] = useState("07:00");
   const [exName, setExName] = useState("");
@@ -181,9 +183,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
   const currentGoalPlan = GOAL_PLANS[selectedGoal] || GOAL_PLANS.fat_loss;
 
   // Trackers for Goal Achievement
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const weekWorkouts = workouts.filter(w => (!w.date || w.date >= sevenDaysAgo));
+  const weekWorkouts = filterPeriod(workouts, 7);
   const totalGymMinsThisWeek = weekWorkouts.reduce((s, w) => s + (Number(w.minutes) || 0), 0);
   const gymSessionsCount = weekWorkouts.length;
 
@@ -193,38 +193,13 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
   // Goal Achievement Scoring
   const gymAdherencePct = Math.min(100, Math.round((totalGymMinsThisWeek / currentGoalPlan.targetGymMinsWeek) * 100));
 
-  // Calorie Status
-  let calorieStatus = { text: "No meals logged today", onTrack: null, badge: "Pending" };
-  if (todayCalories > 0) {
-    const diff = todayCalories - currentGoalPlan.targetCalories;
-    if (selectedGoal === "fat_loss") {
-      if (diff <= 100) {
-        calorieStatus = { text: `Target Met: ${todayCalories} kcal consumed (Within ${currentGoalPlan.targetCalories} limit)`, onTrack: true, badge: "Optimal Deficit" };
-      } else {
-        calorieStatus = { text: `${diff} kcal over cutting target`, onTrack: false, badge: "Over Target" };
-      }
-    } else if (selectedGoal === "muscle_gain") {
-      if (todayCalories >= bmiData.tdee) {
-        calorieStatus = { text: `Surplus Hit: ${todayCalories} kcal consumed (Anabolic zone)`, onTrack: true, badge: "Surplus Hit" };
-      } else {
-        calorieStatus = { text: `${bmiData.tdee - todayCalories} kcal under maintenance. Eat more!`, onTrack: false, badge: "Under Target" };
-      }
-    } else {
-      if (Math.abs(diff) < 250) {
-        calorieStatus = { text: `Calorie equilibrium maintained (${todayCalories} kcal)`, onTrack: true, badge: "Balanced" };
-      } else {
-        calorieStatus = { text: `${todayCalories} kcal logged`, onTrack: true, badge: "Logged" };
-      }
-    }
-  }
-
-  // Composite Fitness Goal Status
-  const isCrushingGoal = gymAdherencePct >= 70 && (calorieStatus.onTrack !== false);
-  const goalAchievementStatus = isCrushingGoal
-    ? { title: "On Track & Achieving Goal! 🏆", desc: "Your weekly workout volume and nutrition discipline align directly with your target.", color: t.good }
-    : gymAdherencePct >= 40
-    ? { title: "Progressing — Pick Up Pace ⚡", desc: `You've completed ${totalGymMinsThisWeek} of ${currentGoalPlan.targetGymMinsWeek} gym minutes this week.`, color: t.a1 }
-    : { title: "Behind Fitness Target ⏳", desc: `Need ${currentGoalPlan.targetGymMinsWeek - totalGymMinsThisWeek} more workout minutes to hit this week's milestone.`, color: t.warm };
+  // Meal logging may be incomplete; it cannot establish nutrition adherence.
+  const calorieStatus = nutritionStatus(meals, currentGoalPlan.targetCalories);
+  const goalAchievementStatus = {
+    title: totalGymMinsThisWeek >= currentGoalPlan.targetGymMinsWeek ? "Weekly workout target reached" : "Your workout progress",
+    desc: `${totalGymMinsThisWeek} of ${currentGoalPlan.targetGymMinsWeek} workout minutes recorded in the past 7 days. ${calorieStatus.hasLogs ? "Meals are a partial daily log, not an adherence score." : "Nutrition progress is unknown until meals are logged."}`,
+    color: gymAdherencePct >= 100 ? t.good : t.a1,
+  };
 
   // Quick Action: Add Suggested Workout to Logged Workouts
   const handleQuickLogWorkout = async (w) => {
@@ -269,9 +244,14 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
     const [wh, wm] = wake.split(":").map(Number);
     let mins = (wh * 60 + wm) - (bh * 60 + bm);
     if (mins < 0) mins += 24 * 60;
-    await addItem(userId, "sleep", { date: todayStr(), bed, wake, hours: +(mins / 60).toFixed(1) });
+    if (!bed || !wake || !Number.isFinite(mins) || mins <= 0) { setActionFeedback("Enter different bed and wake times."); return; }
+    try {
+      await saveSleep(userId, todayStr(), { bed, wake, hours: +(mins / 60).toFixed(1) });
+      setActionFeedback("Sleep saved for today’s wake-up date. Saving again updates this night.");
+    } catch { setActionFeedback("Could not save sleep. Please try again."); }
   };
-  const avgSleep = sleep.length ? (sleep.reduce((s, x) => s + (Number(x.hours) || 0), 0) / sleep.length).toFixed(1) : 0;
+  const sleepTrend = sleepByDay(sleep, dateRange(30));
+  const avgSleep = sleepTrend.length ? (sleepTrend.reduce((sum, x) => sum + x.hours, 0) / sleepTrend.length).toFixed(1) : null;
 
   const logWorkout = async () => {
     if (!exName || !exMin) return;
@@ -295,7 +275,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
           value={sub}
           onChange={setSub}
           options={[
-            ["goals", "Goals & AI Coach", Target],
+            ["goals", "Goals & Progress", Target],
             ["workout", "Workouts", Dumbbell],
             ["diet", "Diet & Kcal", Utensils],
             ["bmi", "BMI & Calculator", Scale],
@@ -337,16 +317,16 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
                 {Object.entries(GOAL_PLANS).map(([key, plan]) => {
                   const isSelected = selectedGoal === key;
                   const PlanIcon = plan.icon;
                   return (
-                    <div
+                    <button type="button"
                       key={key}
                       onClick={() => handleGoalSelect(key)}
                       className="press card-hover"
-                      style={{
+                      style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                         padding: "14px", borderRadius: 14, cursor: "pointer",
                         background: isSelected ? t.surface2 : "transparent",
                         border: `2px solid ${isSelected ? plan.color : t.line}`,
@@ -368,7 +348,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                       <div style={{ fontSize: 11, color: t.muted, marginTop: 4 }}>
                         {plan.badge}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -393,7 +373,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                   textAlign: "right", background: t.surface2, padding: "8px 16px", borderRadius: 12,
                   border: `1px solid ${t.line}`
                 }}>
-                  <div style={{ fontSize: 11, color: t.muted }}>Weekly Adherence</div>
+                  <div style={{ fontSize: 11, color: t.muted }}>Workout target</div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: goalAchievementStatus.color }}>
                     {gymAdherencePct}%
                   </div>
@@ -401,7 +381,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
               </div>
 
               {/* Goal Achievement Metric Cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12, marginTop: 14 }}>
                 {/* Gym Time Tracker */}
                 <div style={{ background: t.surface2, padding: 14, borderRadius: 12, border: `1px solid ${t.line}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -465,7 +445,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 12, marginBottom: 20 }}>
               {currentGoalPlan.workouts.map((wk, idx) => (
                 <Card t={t} key={idx} style={{ padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div>
@@ -527,13 +507,13 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 Log Custom Workout Session
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
+                <input aria-label="Workout name"
                   style={{ ...inputStyle(t), flex: 1, minWidth: 200 }}
                   placeholder="Exercise Name (e.g. Chest & Triceps, 5k Run, Legs)"
                   value={exName}
                   onChange={e => setExName(e.target.value)}
                 />
-                <input
+                <input aria-label="Workout duration in minutes"
                   style={{ ...inputStyle(t), width: 90 }}
                   placeholder="Minutes"
                   type="number"
@@ -582,13 +562,13 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 Log Daily Meal & Calorie Intake
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
+                <input aria-label="Meal name"
                   style={{ ...inputStyle(t), flex: 1, minWidth: 200 }}
                   placeholder="Meal Name (e.g. Scrambled Eggs & Toast, Chicken Bowl)"
                   value={mealName}
                   onChange={e => setMealName(e.target.value)}
                 />
-                <input
+                <input aria-label="Calories"
                   style={{ ...inputStyle(t), width: 100 }}
                   placeholder="kcal"
                   type="number"
@@ -637,10 +617,10 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 <Scale size={18} color={t.a1} /> Body Metrics & Calculator
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 12, marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 5 }}>Weight (kg)</div>
-                  <input
+                  <input aria-label="Weight in kilograms"
                     type="number"
                     style={inputStyle(t)}
                     value={weight}
@@ -650,7 +630,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 </div>
                 <div>
                   <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 5 }}>Height (cm)</div>
-                  <input
+                  <input aria-label="Height in centimetres"
                     type="number"
                     style={inputStyle(t)}
                     value={height}
@@ -660,7 +640,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 </div>
                 <div>
                   <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 5 }}>Age</div>
-                  <input
+                  <input aria-label="Age"
                     type="number"
                     style={inputStyle(t)}
                     value={age}
@@ -670,7 +650,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
                 </div>
                 <div>
                   <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 5 }}>Gender</div>
-                  <select style={inputStyle(t)} value={gender} onChange={e => setGender(e.target.value)}>
+                  <select aria-label="Sex used in calorie calculation" style={inputStyle(t)} value={gender} onChange={e => setGender(e.target.value)}>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                   </select>
@@ -679,7 +659,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
 
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 5 }}>Weekly Activity Level</div>
-                <select style={inputStyle(t)} value={activity} onChange={e => setActivity(e.target.value)}>
+                <select aria-label="Activity level" style={inputStyle(t)} value={activity} onChange={e => setActivity(e.target.value)}>
                   <option value="1.2">Sedentary (Little or no exercise)</option>
                   <option value="1.375">Lightly Active (Exercise 1–3 days/week)</option>
                   <option value="1.55">Moderately Active (Exercise 3–5 days/week)</option>
@@ -697,7 +677,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
 
             {/* BMI & TDEE Results */}
             {bmiData && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14, marginBottom: 16 }}>
                 <Card t={t} style={{ padding: 20 }}>
                   <div style={{ fontSize: 12, color: t.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Body Mass Index (BMI)</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10, margin: "6px 0 10px" }}>
@@ -758,20 +738,21 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
           <div>
             <Card t={t} style={{ padding: 18, marginBottom: 16 }}>
               <div style={{ fontSize: 12.5, color: t.muted, marginBottom: 12 }}>
-                Average logged: <b style={{ color: t.a2 }}>{avgSleep}h</b> · Aim for 7–8h for physical recovery
+                Average per wake-up date (past 30 days): <b style={{ color: t.a2 }}>{avgSleep === null ? "Not logged" : `${avgSleep}h`}</b> · Aim for 7–8h for physical recovery
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                <Field t={t} label="Bed time"><input type="time" style={inputStyle(t)} value={bed} onChange={e => setBed(e.target.value)} /></Field>
-                <Field t={t} label="Wake time"><input type="time" style={inputStyle(t)} value={wake} onChange={e => setWake(e.target.value)} /></Field>
+                <Field t={t} label="Bed time"><input aria-label="Bed time" type="time" style={inputStyle(t)} value={bed} onChange={e => setBed(e.target.value)} /></Field>
+                <Field t={t} label="Wake time"><input aria-label="Wake time" type="time" style={inputStyle(t)} value={wake} onChange={e => setWake(e.target.value)} /></Field>
               </div>
-              <PrimaryButton t={t} onClick={logSleep}>Log Last Night's Sleep</PrimaryButton>
+              <PrimaryButton t={t} onClick={logSleep}>Save Last Night's Sleep</PrimaryButton>
+              <p style={{ color: t.muted, fontSize: 14 }}>Saved under today’s wake-up date. Saving again updates the same night.</p>
             </Card>
 
             <Card t={t} style={{ padding: 18 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 10 }}>Sleep Trend (Hours)</div>
               <div style={{ height: 160 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={sleep}>
+                  <LineChart data={sleepTrend}>
                     <CartesianGrid stroke={t.line} vertical={false} />
                     <XAxis dataKey="date" tickFormatter={dayName} tick={{ fill: t.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: t.muted, fontSize: 10 }} axisLine={false} tickLine={false} width={24} />

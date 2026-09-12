@@ -70,13 +70,13 @@ export function useT(mode = "dark", scheme = "blue") {
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
-export const todayStr = () => new Date().toISOString().slice(0, 10);
-export const dayName = (d) => new Date(d).toLocaleDateString(undefined, { weekday: "short" });
+export { localDateKey as todayStr } from "./utils/dates.js";
+export { formatDate as dayName } from "./utils/dates.js";
 
 export function inputStyle(t) {
   return {
     width: "100%", background: t.surface2, border: `1px solid ${t.line}`, borderRadius: 10,
-    padding: "10px 12px", color: t.text, fontSize: 14, outline: "none", boxSizing: "border-box",
+    padding: "10px 12px", minHeight: 44, color: t.text, fontSize: 16, boxSizing: "border-box",
     transition: "border-color .15s ease"
   };
 }

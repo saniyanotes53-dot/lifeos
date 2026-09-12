@@ -1,3 +1,4 @@
+import { Modal } from "./primitives";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Search, ArrowRight, Home, ListChecks, Clock, Moon, Wallet,
@@ -96,7 +97,7 @@ export default function CommandPalette({
   if (!isOpen) return null;
 
   return (
-    <div
+    <Modal title="Search and commands" onClose={onClose}
       onClick={onClose}
       style={{
         position: "fixed",
@@ -136,7 +137,7 @@ export default function CommandPalette({
           borderBottom: `1px solid ${t.line}`
         }}>
           <Search size={20} color={t.a1} />
-          <input
+          <input aria-label="Search commands"
             ref={inputRef}
             value={query}
             onChange={e => { setQuery(e.target.value); setSelectedIndex(0); }}
@@ -152,7 +153,7 @@ export default function CommandPalette({
             }}
           />
           {query && (
-            <button
+            <button aria-label="Close dialog"
               onClick={() => setQuery("")}
               style={{ background: "transparent", border: "none", color: t.muted, cursor: "pointer", padding: 2 }}
             >
@@ -182,11 +183,11 @@ export default function CommandPalette({
               const isSelected = index === selectedIndex;
               const Icon = item.icon;
               return (
-                <div
+                <button type="button"
                   key={item.id}
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  style={{
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
@@ -227,7 +228,7 @@ export default function CommandPalette({
                     </div>
                   </div>
                   {isSelected && <ArrowRight size={15} color={t.a1} />}
-                </div>
+                </button>
               );
             })
           )}
@@ -254,6 +255,6 @@ export default function CommandPalette({
           </span>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

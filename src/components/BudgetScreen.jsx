@@ -1,3 +1,5 @@
+import { IconBtn } from "./primitives";
+import { Modal } from "./primitives";
 import React, { useState, useMemo } from "react";
 import {
   Upload, TrendingUp, Flame, Wallet, CreditCard, Banknote, ArrowRight,
@@ -8,6 +10,8 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";
 import Papa from "papaparse";
+import { parseLocalDate } from "../utils/dates";
+import { monthlyTransactions } from "../utils/analytics";
 import { inputStyle, todayStr, CAT_PALETTE } from "../theme";
 import { Card, Screen, SectionLabel, StatChip, PrimaryButton, GhostButton, Empty } from "./primitives";
 import { addItem, deleteItem, updateItem } from "../firestore";
@@ -25,7 +29,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
   const [category, setCategory] = useState("Food");
   const [note, setNote] = useState("");
   const [type, setType] = useState("expense");
-  const [selectedWallet, setSelectedWallet] = useState("Bank");
+  const [selectedWallet, setSelectedWallet] = useState("");
 
   // AI Import State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -56,15 +60,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
   const CATS = ["Food", "Transport", "Shopping", "Bills", "Health", "Entertainment", "Income", "Other"];
 
-  // Default wallets if user has none saved yet
-  const activeWallets = wallets.length > 0 ? wallets : [
-    { id: "default-bank", name: "Bank Account", type: "Bank", balance: 25000 },
-    { id: "default-cash", name: "Cash Wallet", type: "Cash", balance: 3500 }
-  ];
+  const activeWallets = wallets;
 
   // Calculations
-  const currentMonthStr = todayStr().slice(0, 7); // "YYYY-MM"
-  const thisMonthTx = tx.filter(x => (x.date || "").startsWith(currentMonthStr));
+  const currentDay = todayStr();
+  const currentMonthStr = currentDay.slice(0, 7); // "YYYY-MM"
+  const thisMonthTx = tx.filter(x => (x.date || "").startsWith(currentMonthStr) && x.date <= todayStr());
   const thisMonthSpent = thisMonthTx.filter(x => x.type === "expense").reduce((s, x) => s + Number(x.amount || 0), 0);
   const thisMonthIncome = thisMonthTx.filter(x => x.type === "income").reduce((s, x) => s + Number(x.amount || 0), 0);
   const totalBalance = activeWallets.reduce((s, w) => s + Number(w.balance || 0), 0);
@@ -81,31 +82,18 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
   }, [thisMonthTx]);
 
   // Last 6 Months Trend
-  const last6MonthsData = useMemo(() => {
-    const months = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toISOString().slice(0, 7);
-      const label = d.toLocaleDateString(undefined, { month: "short" });
-      const monthTx = tx.filter(x => (x.date || "").startsWith(key));
-      const exp = monthTx.filter(x => x.type === "expense").reduce((s, x) => s + Number(x.amount || 0), 0);
-      const inc = monthTx.filter(x => x.type === "income").reduce((s, x) => s + Number(x.amount || 0), 0);
-      months.push({ month: label, spent: exp, income: inc });
-    }
-    return months;
-  }, [tx]);
+  const last6MonthsData = useMemo(() => monthlyTransactions(tx, currentDay), [tx, currentDay]);
 
   // Handlers
   const handleAddTx = async () => {
-    if (!amount || isNaN(amount)) return;
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) return;
     await addItem(userId, "transactions", {
       date: todayStr(),
       amount: Number(amount),
       category: type === "income" ? "Income" : category,
       note: note.trim(),
       type,
-      wallet: selectedWallet
+      wallet: selectedWallet || "Unassigned"
     });
     setAmount("");
     setNote("");
@@ -126,7 +114,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
   };
 
   const handleAddBudget = async () => {
-    if (!budgetLimit || isNaN(budgetLimit)) return;
+    if (!Number.isFinite(Number(budgetLimit)) || Number(budgetLimit) <= 0) return;
     await addItem(userId, "categoryBudgets", {
       category: budgetCat,
       limit: Number(budgetLimit),
@@ -160,7 +148,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
     lines.forEach(line => {
       // Regex search for amount (e.g. Rs. 450, INR 1200, 500.00, etc.)
-      const amountMatch = line.match(/(?:rs\.?|inr|₹)?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i);
+      const amountMatch = line.match(/(?:rs\.?|inr|₹)\s*(\d+(?:,\d+)*(?:\.\d+)?)/i);
       if (amountMatch) {
         const rawAmt = Number(amountMatch[1].replace(/,/g, ""));
         if (rawAmt > 0) {
@@ -171,13 +159,15 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
           else if (/(amazon|flipkart|myntra|store|shopping)/i.test(line)) cat = "Shopping";
           else if (/(bill|electricity|wifi|recharge|rent)/i.test(line)) cat = "Bills";
 
+          const dateMatch = line.match(/\b\d{4}-\d{2}-\d{2}\b/);
+          if (dateMatch && !parseLocalDate(dateMatch[0])) return;
           parsed.push({
-            date: todayStr(),
+            date: dateMatch ? dateMatch[0] : todayStr(),
             amount: rawAmt,
             category: isIncome ? "Income" : cat,
             note: line.slice(0, 40).trim(),
             type: isIncome ? "income" : "expense",
-            wallet: "Bank"
+            wallet: "Unassigned"
           });
         }
       }
@@ -194,7 +184,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
         setShowImportModal(false);
       }, 1400);
     } else {
-      setImportStatus("Could not detect amounts in pasted text. Try uploading CSV or pasting raw transaction lines.");
+      setImportStatus("No valid transactions found. Include ₹, Rs. or INR before each amount. Dates, when supplied, must use YYYY-MM-DD.");
     }
   };
 
@@ -206,12 +196,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
       complete: async (res) => {
         const rows = res.data.map(r => ({
           date: r.date || r.Date || todayStr(),
-          amount: Math.abs(Number(r.amount || r.Amount || 0)),
+          amount: Math.abs(Number(String(r.amount || r.Amount || 0).replace(/,/g, ""))),
           category: r.category || r.Category || "Other",
           note: r.note || r.Note || r.description || r.Description || "",
           type: (Number(r.amount || r.Amount || 0)) < 0 ? "expense" : (r.type || "expense"),
-          wallet: "Bank"
-        })).filter(r => r.amount > 0);
+          wallet: "Unassigned"
+        })).filter(r => Number.isFinite(r.amount) && r.amount > 0 && parseLocalDate(r.date));
 
         for (const row of rows) {
           await addItem(userId, "transactions", row);
@@ -232,11 +222,11 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
       setAiInsights({
         generatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         summary: `Your spending this month is ₹${thisMonthSpent}. On average, you spend ₹${avgSpent}/day.`,
-        categoryCreep: topCat ? `Highest category is ${topCat.name} at ₹${topCat.value} (${Math.round((topCat.value / (thisMonthSpent || 1)) * 100)}% of expenses).` : "No major expense spikes detected.",
+        categoryCreep: topCat ? `Highest category is ${topCat.name} at ₹${topCat.value} (${Math.round((topCat.value / (thisMonthSpent || 1)) * 100)}% of expenses).` : "No expenses logged this month.",
         suggestions: [
           topCat ? `Consider setting a ₹${Math.round(topCat.value * 0.85)} budget limit on ${topCat.name} to save ~15%.` : "Track daily transactions to unlock predictive insights.",
           "Keep your Cash wallet updated for accurate liquid net worth.",
-          "Review recurring subscriptions under Bills before month-end."
+          "The summary covers logged transactions only, not your bank’s live balance."
         ]
       });
       setInsightsLoading(false);
@@ -249,7 +239,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
         {/* Secondary Sub-navigation matching Hisaabat */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ maxWidth: "100%", display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
             {[
               ["overview", "Overview"],
               ["transactions", "Transactions"],
@@ -294,7 +284,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div>
                   <div style={{ fontSize: 12, color: t.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                    Total Liquid Balance
+                    Saved Wallet Balances
                   </div>
                   <div style={{ fontSize: 28, fontWeight: 800, color: t.text, marginTop: 2 }}>
                     ₹{totalBalance.toLocaleString()}
@@ -326,8 +316,10 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 </div>
               </div>
 
+              <p style={{ fontSize: 14, color: t.muted }}>Manually entered balances; logged transactions do not adjust these automatically.</p>
+              {activeWallets.length === 0 && <Empty t={t} text="No wallets saved. Add a wallet to record its balance." />}
               {/* Sub-cards per wallet */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 12 }}>
                 {activeWallets.map(w => (
                   <div
                     key={w.id}
@@ -372,12 +364,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   border: `1px solid ${t.a1}`, color: t.a1, fontSize: 14, fontWeight: 600, cursor: "pointer"
                 }}
               >
-                <Sparkles size={16} /> AI Statement / CSV Import
+                <Sparkles size={16} /> Statement / CSV Import
               </button>
             </div>
 
             {/* 3. THIS MONTH SUMMARY & 6-MONTH TREND */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14, marginBottom: 16 }}>
               {/* This Month Card */}
               <Card t={t} style={{ padding: 18 }}>
                 <div style={{ fontSize: 12, color: t.muted, textTransform: "uppercase" }}>This Month's Spending</div>
@@ -452,7 +444,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
             <Card t={t} style={{ padding: 18, marginBottom: 16, borderColor: `${t.a1}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: t.text }}>
-                  <Sparkles size={16} color={t.a1} /> AI Spending Insights
+                  <Sparkles size={16} color={t.a1} /> Spending Summary
                 </div>
                 <button
                   onClick={generateAiInsights}
@@ -465,7 +457,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   }}
                 >
                   <RefreshCw size={12} className={insightsLoading ? "pulse" : ""} />
-                  {insightsLoading ? "Analyzing..." : "Generate Insights"}
+                  {insightsLoading ? "Analyzing..." : "Generate Summary"}
                 </button>
               </div>
 
@@ -485,7 +477,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 </div>
               ) : (
                 <div style={{ fontSize: 12.5, color: t.muted }}>
-                  Click "Generate Insights" to receive intelligent analysis of your category creep, spending habits, and budget advice.
+                  Summarize the transactions you have logged this month.
                 </div>
               )}
             </Card>
@@ -493,9 +485,9 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
             {/* 6. RECENT TRANSACTIONS */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "14px 2px 8px" }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Recent Transactions</div>
-              <div onClick={() => setSubView("transactions")} style={{ fontSize: 12, color: t.a1, cursor: "pointer", fontWeight: 600 }}>
+              <button type="button" onClick={() => setSubView("transactions")} style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  fontSize: 12, color: t.a1, cursor: "pointer", fontWeight: 600 }}>
                 View all ({tx.length}) →
-              </div>
+              </button>
             </div>
 
             {tx.length === 0 && <Empty t={t} text="No transactions logged yet." />}
@@ -545,7 +537,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   <div style={{ fontSize: 14.5, color: x.type === "income" ? t.good : t.text, fontWeight: 700 }}>
                     {x.type === "income" ? "+" : "-"}₹{Number(x.amount || 0).toLocaleString()}
                   </div>
-                  <X size={15} color={t.muted} style={{ cursor: "pointer" }} onClick={() => deleteItem(userId, "transactions", x.id)} />
+                  <IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "transactions", x.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
                 </div>
               </Card>
             ))}
@@ -562,7 +554,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               </PrimaryButton>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 12 }}>
               {activeWallets.map(w => (
                 <Card t={t} key={w.id} style={{ padding: 18 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
@@ -656,7 +648,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                       <div style={{ fontSize: 15, fontWeight: 800, color: ln.type === "lend" ? t.good : t.warm }}>
                         {ln.type === "lend" ? "+" : "-"}₹{Number(ln.amount || 0).toLocaleString()}
                       </div>
-                      <X size={15} color={t.muted} style={{ cursor: "pointer" }} onClick={() => deleteItem(userId, "loans", ln.id)} />
+                      <IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "loans", ln.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
                     </div>
                   </Card>
                 ))}
@@ -683,14 +675,14 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
         {/* ADD TRANSACTION MODAL */}
         {showAddTx && (
-          <div style={{
+          <Modal title="Add transaction" onClose={() => setShowAddTx(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 440, padding: 22, background: t.surface }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Add Transaction</h3>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setShowAddTx(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setShowAddTx(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -719,7 +711,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <input
+                <input aria-label="Transaction amount"
                   style={{ ...inputStyle(t), width: 120 }}
                   placeholder="₹ Amount"
                   type="number"
@@ -727,7 +719,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   onChange={e => setAmount(e.target.value)}
                 />
                 {type === "expense" ? (
-                  <select style={{ ...inputStyle(t), flex: 1 }} value={category} onChange={e => setCategory(e.target.value)}>
+                  <select aria-label="Transaction category" style={{ ...inputStyle(t), flex: 1 }} value={category} onChange={e => setCategory(e.target.value)}>
                     {CATS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 ) : (
@@ -737,12 +729,13 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>Wallet / Account</div>
-                <select style={inputStyle(t)} value={selectedWallet} onChange={e => setSelectedWallet(e.target.value)}>
+                <select aria-label="Wallet or account" style={inputStyle(t)} value={selectedWallet} onChange={e => setSelectedWallet(e.target.value)}>
+                  <option value="">Unassigned</option>
                   {activeWallets.map(w => <option key={w.name} value={w.name}>{w.name}</option>)}
                 </select>
               </div>
 
-              <input
+              <input aria-label="Transaction note"
                 style={{ ...inputStyle(t), marginBottom: 16 }}
                 placeholder="Note (optional, e.g. Lunch, Grocery)"
                 value={note}
@@ -751,28 +744,28 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
               <PrimaryButton t={t} onClick={handleAddTx}>Save Transaction</PrimaryButton>
             </Card>
-          </div>
+          </Modal>
         )}
 
         {/* AI STATEMENT / CSV IMPORT MODAL */}
         {showImportModal && (
-          <div style={{
+          <Modal title="Statement and CSV import" onClose={() => setShowImportModal(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 520, padding: 22, background: t.surface }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700, color: t.text }}>
-                  <Sparkles size={18} color={t.a1} /> AI Statement & CSV Import
+                  <Sparkles size={18} color={t.a1} /> Statement & CSV Import
                 </div>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setShowImportModal(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setShowImportModal(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
 
               <div style={{ fontSize: 12.5, color: t.muted, marginBottom: 14 }}>
-                Paste transaction SMS, UPI notification texts, or bank statement lines below. Our parser will extract amounts, categories, and dates automatically.
+                Paste transaction SMS, UPI notification texts, or bank statement lines below. Text is processed in your browser. Include ₹, Rs. or INR before amounts and YYYY-MM-DD dates; missing dates use today. This does not connect to Google Pay. Clicking Import saves the detected transactions.
               </div>
 
-              <textarea
+              <textarea aria-label="Transaction text"
                 style={{ ...inputStyle(t), height: 120, resize: "vertical", marginBottom: 10 }}
                 placeholder={`Paste lines like:\nPaid Rs. 450 to Swiggy\nReceived INR 15,000 from Client via UPI\nUber ride ₹340 on 2026-09-08`}
                 value={statementText}
@@ -787,7 +780,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
               <div style={{ display: "flex", gap: 10 }}>
                 <PrimaryButton t={t} onClick={handleParseStatement} style={{ flex: 1 }}>
-                  Parse with AI
+                  Import transaction text
                 </PrimaryButton>
                 <label
                   className="press"
@@ -798,38 +791,38 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   }}
                 >
                   <Upload size={14} /> Upload CSV
-                  <input type="file" accept=".csv" hidden onChange={handleCsvFile} />
+                  <input aria-label="Upload transaction CSV" type="file" accept=".csv" hidden onChange={handleCsvFile} />
                 </label>
               </div>
             </Card>
-          </div>
+          </Modal>
         )}
 
         {/* ADD WALLET MODAL */}
         {showAddWallet && (
-          <div style={{
+          <Modal title="Add wallet" onClose={() => setShowAddWallet(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 400, padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Add New Wallet</h3>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setShowAddWallet(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setShowAddWallet(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
-              <input
+              <input aria-label="Wallet name"
                 style={{ ...inputStyle(t), marginBottom: 10 }}
                 placeholder="Wallet Name (e.g. HDFC Bank, Secret Stash)"
                 value={walletName}
                 onChange={e => setWalletName(e.target.value)}
               />
-              <select style={{ ...inputStyle(t), marginBottom: 10 }} value={walletType} onChange={e => setWalletType(e.target.value)}>
+              <select aria-label="Wallet type" style={{ ...inputStyle(t), marginBottom: 10 }} value={walletType} onChange={e => setWalletType(e.target.value)}>
                 <option value="Bank">Bank Account</option>
                 <option value="Cash">Cash Wallet</option>
                 <option value="Savings">Savings</option>
                 <option value="Credit Card">Credit Card</option>
                 <option value="Investment">Investment</option>
               </select>
-              <input
+              <input aria-label="Wallet balance"
                 style={{ ...inputStyle(t), marginBottom: 16 }}
                 placeholder="Starting Balance (₹)"
                 type="number"
@@ -838,24 +831,24 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               />
               <PrimaryButton t={t} onClick={handleAddWallet}>Save Wallet</PrimaryButton>
             </Card>
-          </div>
+          </Modal>
         )}
 
         {/* ADD BUDGET MODAL */}
         {showAddBudget && (
-          <div style={{
+          <Modal title="Set category budget" onClose={() => setShowAddBudget(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 380, padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Set Monthly Budget</h3>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setShowAddBudget(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setShowAddBudget(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
-              <select style={{ ...inputStyle(t), marginBottom: 10 }} value={budgetCat} onChange={e => setBudgetCat(e.target.value)}>
+              <select aria-label="Budget category" style={{ ...inputStyle(t), marginBottom: 10 }} value={budgetCat} onChange={e => setBudgetCat(e.target.value)}>
                 {CATS.filter(c => c !== "Income").map(c => <option key={c}>{c}</option>)}
               </select>
-              <input
+              <input aria-label="Budget limit"
                 style={{ ...inputStyle(t), marginBottom: 16 }}
                 placeholder="Monthly Limit (₹)"
                 type="number"
@@ -864,19 +857,19 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               />
               <PrimaryButton t={t} onClick={handleAddBudget}>Set Budget</PrimaryButton>
             </Card>
-          </div>
+          </Modal>
         )}
 
         {/* ADD BORROW/LEND MODAL */}
         {showAddLoan && (
-          <div style={{
+          <Modal title="Borrow or lend" onClose={() => setShowAddLoan(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 400, padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Track Borrow / Lend</h3>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setShowAddLoan(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setShowAddLoan(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <button
@@ -902,20 +895,20 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                   I Borrowed (I owe)
                 </button>
               </div>
-              <input
+              <input aria-label="Person"
                 style={{ ...inputStyle(t), marginBottom: 10 }}
                 placeholder="Person's Name"
                 value={loanPerson}
                 onChange={e => setLoanPerson(e.target.value)}
               />
-              <input
+              <input aria-label="Loan amount"
                 style={{ ...inputStyle(t), marginBottom: 10 }}
                 placeholder="Amount (₹)"
                 type="number"
                 value={loanAmount}
                 onChange={e => setLoanAmount(e.target.value)}
               />
-              <input
+              <input aria-label="Due date"
                 style={{ ...inputStyle(t), marginBottom: 16 }}
                 type="date"
                 value={loanDueDate}
@@ -923,19 +916,19 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               />
               <PrimaryButton t={t} onClick={handleAddLoan}>Save Record</PrimaryButton>
             </Card>
-          </div>
+          </Modal>
         )}
 
         {/* HISAABAT GROUPED MENU MODAL */}
         {menuOpen && (
-          <div style={{
+          <Modal title="Budget features" onClose={() => setMenuOpen(false)} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: t.text, margin: 0 }}>Budget & Wealth Features</h3>
-                <X size={18} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setMenuOpen(false)} />
+                <IconBtn t={t} label="Close dialog" onClick={() => setMenuOpen(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
 
               {/* Group 1: Money */}
@@ -943,12 +936,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 Money
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                <div onClick={() => { setSubView("transactions"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                <button type="button" onClick={() => { setSubView("transactions"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Transactions Ledger</span> <ArrowRight size={14} color={t.muted} />
-                </div>
-                <div onClick={() => { setSubView("wallets"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                </button>
+                <button type="button" onClick={() => { setSubView("wallets"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Wallets & Accounts</span> <ArrowRight size={14} color={t.muted} />
-                </div>
+                </button>
               </div>
 
               {/* Group 2: Insights */}
@@ -956,12 +949,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 Insights
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                <div onClick={() => { setSubView("overview"); setMenuOpen(false); generateAiInsights(); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
-                  <span>AI Financial Insights</span> <Sparkles size={14} color={t.a1} />
-                </div>
-                <div onClick={() => { setPlaceholderTitle("AI Purchase Advisor"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                <button type="button" onClick={() => { setSubView("overview"); setMenuOpen(false); generateAiInsights(); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                  <span>Spending Summary</span> <Sparkles size={14} color={t.a1} />
+                </button>
+                <button type="button" onClick={() => { setPlaceholderTitle("AI Purchase Advisor"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Purchase Advisor</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
-                </div>
+                </button>
               </div>
 
               {/* Group 3: Planning */}
@@ -969,12 +962,12 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 Planning
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-                <div onClick={() => { setSubView("budgets"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                <button type="button" onClick={() => { setSubView("budgets"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Category Budgets & Targets</span> <ArrowRight size={14} color={t.muted} />
-                </div>
-                <div onClick={() => { setPlaceholderTitle("Recurring Transactions"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                </button>
+                <button type="button" onClick={() => { setPlaceholderTitle("Recurring Transactions"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Recurring Subscriptions</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
-                </div>
+                </button>
               </div>
 
               {/* Group 4: Data & Setup */}
@@ -982,15 +975,15 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 Data & Debt
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div onClick={() => { setSubView("borrowLend"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                <button type="button" onClick={() => { setSubView("borrowLend"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Borrow & Lend (Debt Tracker)</span> <ArrowRight size={14} color={t.muted} />
-                </div>
-                <div onClick={() => { setPlaceholderTitle("Bill Splits"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                </button>
+                <button type="button" onClick={() => { setPlaceholderTitle("Bill Splits"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Bill Splits with Friends</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
-                </div>
+                </button>
               </div>
             </Card>
-          </div>
+          </Modal>
         )}
 
         <div style={{ marginTop: 24, textAlign: "center", fontSize: 11.5, color: t.muted, opacity: 0.85, paddingBottom: 16 }}>

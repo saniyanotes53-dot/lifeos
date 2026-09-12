@@ -1,8 +1,10 @@
+import { IconBtn } from "./primitives";
 import React, { useState } from "react";
 import {
   Bell, Clock, Plus, X, ChevronLeft, ChevronRight, Calendar, CheckSquare, Square,
   CalendarDays, ListFilter, Tag
 } from "lucide-react";
+import { parseLocalDate, shiftDate, weekDates as getWeekDates, formatDate } from "../utils/dates";
 import { inputStyle, todayStr, dayName } from "../theme";
 import { Card, Screen, Empty, Segmented, PrimaryButton } from "./primitives";
 import { addItem, deleteItem, updateItem } from "../firestore";
@@ -21,26 +23,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
 
   // Date navigation helpers
   const changeDay = (delta) => {
-    const current = new Date(selectedDate);
-    current.setDate(current.getDate() + delta);
-    setSelectedDate(current.toISOString().slice(0, 10));
-  };
-
-  // Week calculation (Monday to Sunday)
-  const getWeekDates = (baseDateStr) => {
-    const base = new Date(baseDateStr);
-    const day = base.getDay(); // 0 is Sunday
-    const diffToMon = day === 0 ? -6 : 1 - day;
-    const monday = new Date(base);
-    monday.setDate(base.getDate() + diffToMon);
-
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      days.push(d.toISOString().slice(0, 10));
-    }
-    return days;
+    setSelectedDate(shiftDate(selectedDate, delta));
   };
 
   const weekDates = getWeekDates(selectedDate);
@@ -65,7 +48,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
   const scheduleLocalReminder = (b) => {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const [h, m] = b.time.split(":").map(Number);
-    const target = new Date(b.date || todayStr());
+    const target = parseLocalDate(b.date || todayStr());
     target.setHours(h, m, 0, 0);
     const now = new Date();
     if (target > now) {
@@ -76,7 +59,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
   };
 
   const add = async (targetDate = selectedDate) => {
-    if (!label.trim()) return;
+    if (!label.trim() || !time || !parseLocalDate(targetDate)) return;
     const b = {
       time,
       label: label.trim(),
@@ -128,7 +111,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
           {/* Date Selector & Navigator */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
-              onClick={() => changeDay(-1)}
+              aria-label="Previous day" onClick={() => changeDay(-1)}
               className="press"
               style={{
                 width: 32, height: 32, borderRadius: 10, border: `1px solid ${t.line}`,
@@ -144,10 +127,10 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
               fontSize: 13, fontWeight: 600, color: t.text
             }}>
               <Calendar size={14} color={t.a1} />
-              <span>{new Date(selectedDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
+              <span>{formatDate(selectedDate, { weekday: "short", month: "short", day: "numeric" })}</span>
             </div>
             <button
-              onClick={() => changeDay(1)}
+              aria-label="Next day" onClick={() => changeDay(1)}
               className="press"
               style={{
                 width: 32, height: 32, borderRadius: 10, border: `1px solid ${t.line}`,
@@ -206,13 +189,13 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
             Add Time Block for {selectedDate}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input
+            <input aria-label="Block time"
               type="time"
               style={{ ...inputStyle(t), width: 100 }}
               value={time}
               onChange={e => setTime(e.target.value)}
             />
-            <input
+            <input aria-label="Block title"
               style={{ ...inputStyle(t), flex: 1, minWidth: 200 }}
               placeholder="What's scheduled? (e.g. Deep Work, Gym, Reading)"
               value={label}
@@ -221,7 +204,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
             />
             {/* Optional task link selector */}
             {tasks.filter(tk => !tk.done).length > 0 && (
-              <select
+              <select aria-label="Linked task"
                 style={{ ...inputStyle(t), width: 160 }}
                 value={selectedTaskId}
                 onChange={e => {
@@ -237,7 +220,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
               </select>
             )}
             <button
-              onClick={() => add()}
+              aria-label="Add time block" onClick={() => add()}
               className="press"
               style={{
                 width: 42, borderRadius: 10, border: "none",
@@ -265,16 +248,16 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
                   opacity: b.done ? 0.6 : 1, transition: "opacity 0.2s ease"
                 }}
               >
-                <div
-                  onClick={() => toggleDone(b)}
+                <button type="button"
+                  role="checkbox" aria-checked={!!b.done} aria-label={`Complete block: ${b.label}`} onClick={() => toggleDone(b)}
                   className="press"
-                  style={{
-                    cursor: "pointer", display: "flex", alignItems: "center",
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
+                    cursor: "pointer", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center",
                     color: b.done ? t.good : t.muted
                   }}
                 >
                   {b.done ? <CheckSquare size={18} /> : <Square size={18} />}
-                </div>
+                </button>
 
                 <div style={{
                   display: "flex", alignItems: "center", gap: 5, color: t.a1,
@@ -298,7 +281,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
                   )}
                 </div>
 
-                <X size={16} color={t.muted} style={{ cursor: "pointer" }} onClick={() => remove(b.id)} />
+                <IconBtn t={t} label="Delete entry" onClick={() => remove(b.id)}><X size={16} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </Card>
             ))}
           </div>
@@ -307,7 +290,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
         {/* WEEK VIEW (7-Day Grid) */}
         {view === "week" && (
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 130px), 1fr))",
             gap: 10, overflowX: "auto"
           }}>
             {weekDates.map(dateStr => {
@@ -316,12 +299,12 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
               const dateBlocks = blocks
                 .filter(b => (b.date || todayStr()) === dateStr)
                 .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-              const dObj = new Date(dateStr);
+              const dObj = parseLocalDate(dateStr);
               const dayTitle = dObj.toLocaleDateString(undefined, { weekday: "short" });
               const dayNum = dObj.getDate();
 
               return (
-                <div
+                <div role="button" tabIndex={0} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.currentTarget.click(); } }}
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
                   style={{
@@ -350,7 +333,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
                     {dateBlocks.map(b => (
                       <div
                         key={b.id}
-                        onClick={(e) => { e.stopPropagation(); toggleDone(b); }}
+                        role="checkbox" tabIndex={0} aria-checked={!!b.done} aria-label={`Complete block: ${b.label}`} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleDone(b); } }} onClick={(e) => { e.stopPropagation(); toggleDone(b); }}
                         style={{
                           background: t.surface2, border: `1px solid ${t.line}`, borderRadius: 8,
                           padding: "6px 8px", fontSize: 11.5, opacity: b.done ? 0.5 : 1

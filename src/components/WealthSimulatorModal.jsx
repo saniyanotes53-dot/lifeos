@@ -1,8 +1,11 @@
+import { Modal } from "./primitives";
 import React, { useState, useMemo } from "react";
 import {
   DollarSign, TrendingUp, ShieldCheck, AlertTriangle, Sparkles, X, Sliders, ArrowUpRight
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { filterPeriod } from "../utils/analytics";
+import { localDateKey } from "../utils/dates";
 import { Card, PrimaryButton, GhostButton } from "./primitives";
 
 export default function WealthSimulatorModal({
@@ -17,21 +20,10 @@ export default function WealthSimulatorModal({
     return wallets.reduce((sum, w) => sum + (Number(w.balance) || 0), 0);
   }, [wallets]);
 
-  // Average daily expense from past 30 days
-  const dailyBurn = useMemo(() => {
-    const expenseTx = tx.filter(x => x.type === "expense");
-    if (expenseTx.length === 0) return 600; // default benchmark
-    const totalSpent = expenseTx.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
-    // Rough estimate over entries
-    return Math.max(100, Math.round(totalSpent / Math.max(1, Math.min(30, expenseTx.length))));
-  }, [tx]);
-
-  // Financial Runway in months
-  const runwayMonths = useMemo(() => {
-    const cash = totalLiquidCash > 0 ? totalLiquidCash : 50000;
-    const monthlyBurn = dailyBurn * 30;
-    return Number((cash / monthlyBurn).toFixed(1));
-  }, [totalLiquidCash, dailyBurn]);
+  const today = localDateKey();
+  const recentExpenses = filterPeriod(tx, 30, today).filter(x => x.type === "expense");
+  const dailyBurn = recentExpenses.reduce((sum, x) => sum + (Number(x.amount) || 0), 0) / 30;
+  const runwayMonths = wallets.length && dailyBurn > 0 ? Number((Math.max(0, totalLiquidCash) / (dailyBurn * 30)).toFixed(1)) : null;
 
   // Simulation controls
   const [initialCapital, setInitialCapital] = useState(() => totalLiquidCash > 0 ? String(totalLiquidCash) : "100000");
@@ -43,7 +35,7 @@ export default function WealthSimulatorModal({
   const chartData = useMemo(() => {
     const p0 = parseFloat(initialCapital) || 0;
     const pM = parseFloat(monthlyContribution) || 0;
-    const r = (expectedReturn / 100) / 12; // monthly interest rate
+    const r = Math.pow(1 + expectedReturn / 100, 1 / 12) - 1; // effective monthly rate from CAGR
 
     const data = [];
     let currentTotal = p0;
@@ -58,7 +50,7 @@ export default function WealthSimulatorModal({
 
     for (let yr = 1; yr <= years; yr++) {
       for (let m = 1; m <= 12; m++) {
-        currentTotal = (currentTotal + pM) * (1 + r);
+        currentTotal = currentTotal * (1 + r) + pM; // contribution at month end
         totalInvested += pM;
       }
       data.push({
@@ -77,7 +69,7 @@ export default function WealthSimulatorModal({
   if (!isOpen) return null;
 
   return (
-    <div
+    <Modal title="Wealth projector" onClose={onClose}
       onClick={onClose}
       style={{
         position: "fixed",
@@ -129,7 +121,7 @@ export default function WealthSimulatorModal({
               </div>
             </div>
           </div>
-          <button
+          <button aria-label="Close dialog"
             onClick={onClose}
             style={{ background: t.surface2, border: `1px solid ${t.line}`, color: t.muted, borderRadius: 10, padding: 6, cursor: "pointer" }}
           >
@@ -153,29 +145,30 @@ export default function WealthSimulatorModal({
           <div>
             <div style={{ fontSize: 12, color: t.text, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
               {runwayMonths >= 6 ? <ShieldCheck size={16} color={t.good} /> : <AlertTriangle size={16} color="#f59e0b" />}
-              Emergency Runway Health
+              Runway from saved balances
             </div>
             <div style={{ fontSize: 11.5, color: t.muted, marginTop: 3 }}>
-              At daily burn rate of ₹{dailyBurn.toLocaleString()}/day
+              Logged average: ₹{dailyBurn.toLocaleString("en-IN", { maximumFractionDigits: 2 })}/day over the past 30 days
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: runwayMonths >= 6 ? t.good : t.text }}>
-              {runwayMonths} Months
+              {runwayMonths === null ? "Not enough data" : `${runwayMonths} months`}
             </div>
             <div style={{ fontSize: 10.5, color: t.muted }}>
-              {runwayMonths >= 6 ? "✓ Resilient (>6 mo reserve)" : "Aim for 6 months safety fund"}
+              {runwayMonths === null ? "Add wallet balances and expense records." : "An estimate from logged expenses, not a guarantee."}
             </div>
           </div>
         </div>
 
+        <p style={{ fontSize: 14, color: t.muted }}>Only saved balances and logged expenses are included; missing expenses can overstate runway. The projection below uses example inputs, assumes month-end contributions, and excludes fees and taxes.</p>
         {/* Controls Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
           <div>
             <label style={{ fontSize: 11.5, color: t.muted, fontWeight: 600, display: "block", marginBottom: 5 }}>
               Initial Investment (₹)
             </label>
-            <input
+            <input aria-label="Initial investment in rupees"
               type="number"
               value={initialCapital}
               onChange={e => setInitialCapital(e.target.value)}
@@ -190,7 +183,7 @@ export default function WealthSimulatorModal({
             <label style={{ fontSize: 11.5, color: t.muted, fontWeight: 600, display: "block", marginBottom: 5 }}>
               Monthly Contribution (₹)
             </label>
-            <input
+            <input aria-label="Monthly contribution in rupees"
               type="number"
               value={monthlyContribution}
               onChange={e => setMonthlyContribution(e.target.value)}
@@ -205,10 +198,10 @@ export default function WealthSimulatorModal({
         {/* Sliders */}
         <div style={{ background: t.surface2, borderRadius: 14, padding: "14px 16px", border: `1px solid ${t.line}`, marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-            <span style={{ color: t.muted, fontWeight: 600 }}>Expected Return:</span>
+            <span style={{ color: t.muted, fontWeight: 600 }}>Assumed annual return:</span>
             <span style={{ color: t.a1, fontWeight: 700 }}>{expectedReturn}% CAGR</span>
           </div>
-          <input
+          <input aria-label="Assumed annual return percentage"
             type="range"
             min="5"
             max="20"
@@ -221,9 +214,9 @@ export default function WealthSimulatorModal({
           {/* Quick Presets */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {[
-              [7, "Conservative (7%)"],
-              [12, "Index Funds (12%)"],
-              [15, "Growth Equities (15%)"]
+              [7, "7% scenario"],
+              [12, "12% scenario"],
+              [15, "15% scenario"]
             ].map(([val, lbl]) => (
               <button
                 key={val}
@@ -293,6 +286,6 @@ export default function WealthSimulatorModal({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -42,3 +42,8 @@ export async function updateItem(uid, name, id, patch) {
 export async function deleteItem(uid, name, id) {
   return deleteDoc(doc(db, "users", uid, name, id));
 }
+
+// A wake-up date identifies a single night's sleep; repeat saves update it.
+export async function saveSleep(uid, date, data) {
+  return setDoc(doc(db, "users", uid, "sleep", date), { ...data, date });
+}

@@ -3,6 +3,7 @@ import {
   Home, ListChecks, Moon, Wallet, BarChart3, Clock, User, LogOut, Sparkles, Sun, Settings,
   ChevronRight, Headphones, Search, DollarSign, Award, Zap
 } from "lucide-react";
+import { useLocalDay } from "./useLocalDay";
 import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
 import { ensureUserProfile, watchCollection, updateItem } from "./firestore";
@@ -23,6 +24,8 @@ import { ToastProvider } from "./components/Toast";
 import CopyrightFooter from "./components/CopyrightFooter";
 
 export default function App() {
+  useLocalDay();
+  const [healthView, setHealthView] = useState("goals");
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
   const [scheme, setScheme] = useState(() => localStorage.getItem("lifeos_scheme") || "blue");
   const [theme, setTheme] = useState(() => localStorage.getItem("lifeos_theme") || "dark");
@@ -151,7 +154,7 @@ export default function App() {
   if (!user) {
     return (
       <div style={{
-        minHeight: "100vh", width: "100vw", background: t.bg, display: "flex",
+        minHeight: "100vh", width: "100%", background: t.bg, display: "flex",
         alignItems: "center", justifyContent: "center", padding: 20,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       }}>
@@ -169,8 +172,8 @@ export default function App() {
   // Logged In: Full Desktop / Tablet / Mobile Website Layout wrapped in ToastProvider
   return (
     <ToastProvider t={t}>
-      <div style={{
-        display: "flex", minHeight: "100vh", width: "100vw", background: t.bg,
+      <div className="app-shell" style={{
+        "--focus-color": t.a1, display: "flex", minHeight: "100vh", width: "100%", background: t.bg,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         color: t.text, overflow: "hidden"
       }}>
@@ -261,7 +264,7 @@ export default function App() {
             >
               <Search size={15} color={t.a1} />
               <span style={{ flex: 1, color: t.text, fontWeight: 500 }}>Spotlight…</span>
-              <span style={{ fontSize: 10, background: t.surface, border: `1px solid ${t.line}`, padding: "2px 5px", borderRadius: 6, color: t.muted, fontWeight: 600 }}>
+              <span className="header-shortcut" style={{ fontSize: 10, background: t.surface, border: `1px solid ${t.line}`, padding: "2px 5px", borderRadius: 6, color: t.muted, fontWeight: 600 }}>
                 ⌘K
               </span>
             </button>
@@ -307,10 +310,10 @@ export default function App() {
 
           {/* User Profile Widget at Sidebar Bottom */}
           <div style={{ padding: "12px 14px 8px", borderTop: `1px solid ${t.line}` }}>
-            <div
+            <button type="button"
               onClick={() => setTab("profile")}
               className="press card-hover"
-              style={{
+              style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                 padding: "10px 12px", borderRadius: 12, background: tab === "profile" ? t.surface2 : "transparent",
                 border: `1px solid ${tab === "profile" ? t.a1 : t.line}`, cursor: "pointer",
                 display: "flex", alignItems: "center", gap: 10
@@ -331,7 +334,7 @@ export default function App() {
                 <div style={{ fontSize: 10.5, color: t.muted }}>Profile & Settings</div>
               </div>
               <Settings size={15} color={t.muted} />
-            </div>
+            </button>
           </div>
 
           {/* Buraq Studios Copyright Tagline in Sidebar */}
@@ -345,23 +348,23 @@ export default function App() {
         </aside>
 
         {/* MAIN CONTENT AREA & TOP HEADER */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+        <div className="app-body" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
           {/* Desktop Top Header Bar */}
-          <header style={{
+          <header className="app-header" style={{
             height: 64, borderBottom: `1px solid ${t.line}`, background: t.surface,
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "0 28px", flexShrink: 0
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, textTransform: "capitalize", color: t.text }}>
-                {tab === "focus" ? "Focus Studio (Pro)" : tab}
+                {tab === "focus" ? "Focus Studio" : tab}
               </h2>
-              <span style={{ fontSize: 12, color: t.muted }}>
+              <span className="header-date" style={{ fontSize: 12, color: t.muted }}>
                 {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
               </span>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {/* Spotlight search pill */}
               <button
                 onClick={() => setIsCommandPaletteOpen(true)}
@@ -371,11 +374,11 @@ export default function App() {
                   borderRadius: 10, border: `1px solid ${t.line}`, background: t.surface2,
                   color: t.muted, fontSize: 12.5, cursor: "pointer"
                 }}
-                title="Search and commands (Ctrl+K)"
+                aria-label="Search and commands" title="Search and commands (Ctrl+K)"
               >
                 <Search size={14} color={t.a1} />
-                <span style={{ color: t.text, fontWeight: 500 }}>Search</span>
-                <span style={{ fontSize: 10, background: t.surface, border: `1px solid ${t.line}`, padding: "2px 5px", borderRadius: 6, color: t.muted }}>
+                <span className="header-label" style={{ color: t.text, fontWeight: 500 }}>Search</span>
+                <span className="header-shortcut" style={{ fontSize: 10, background: t.surface, border: `1px solid ${t.line}`, padding: "2px 5px", borderRadius: 6, color: t.muted }}>
                   ⌘K
                 </span>
               </button>
@@ -383,7 +386,7 @@ export default function App() {
               {/* Wealth Simulator Trigger */}
               <button
                 onClick={() => setIsWealthSimulatorOpen(true)}
-                className="press"
+                className="press desktop-action"
                 style={{
                   display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
                   borderRadius: 10, border: `1px solid ${t.good}44`, background: `${t.good}15`,
@@ -397,7 +400,7 @@ export default function App() {
               {/* Guide modal trigger */}
               <button
                 onClick={() => setShowGuideModal(true)}
-                className="press"
+                className="press desktop-action"
                 style={{
                   display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
                   borderRadius: 10, border: `1px solid ${t.line}`, background: t.surface2,
@@ -409,14 +412,14 @@ export default function App() {
               </button>
 
               {/* Quick theme mode toggle */}
-              <div
+              <button type="button"
                 onClick={() => {
                   const next = theme === "dark" ? "light" : "dark";
                   setTheme(next);
                   localStorage.setItem("lifeos_theme", next);
                 }}
                 className="press"
-                style={{
+                style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                   width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.line}`,
                   background: t.surface2, display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "pointer", color: t.a1
@@ -424,11 +427,11 @@ export default function App() {
                 title="Toggle Light/Dark"
               >
                 {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-              </div>
+              </button>
 
               {/* Profile Avatar button */}
               <button
-                onClick={() => setTab("profile")}
+                aria-label="Profile and settings" onClick={() => setTab("profile")}
                 className="press"
                 style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "5px 12px 5px 6px",
@@ -443,7 +446,7 @@ export default function App() {
                 }}>
                   {displayName[0]?.toUpperCase() || <User size={13} />}
                 </div>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: t.text }}>
+                <span className="header-label" style={{ fontSize: 12.5, fontWeight: 600, color: t.text }}>
                   {displayName}
                 </span>
               </button>
@@ -459,6 +462,8 @@ export default function App() {
                 sleep={sleep}
                 tx={tx}
                 workouts={workouts}
+                blocks={blocks}
+                onOpenHealthView={(view) => { setHealthView(view); setTab("health"); }}
                 name={displayName}
                 setTab={setTab}
                 theme={theme}
@@ -486,6 +491,7 @@ export default function App() {
               <FocusStudio
                 t={t}
                 tasks={tasks}
+                initialTaskId={targetFocusTaskId}
                 onCompleteTask={async (taskId) => {
                   await updateItem(user.uid, "tasks", taskId, { done: true });
                 }}
@@ -504,6 +510,7 @@ export default function App() {
             {tab === "health" && (
               <HealthScreen
                 t={t}
+                initialView={healthView}
                 sleep={sleep}
                 workouts={workouts}
                 meals={meals}
@@ -564,11 +571,11 @@ export default function App() {
             ].map(([key, Icon, label]) => {
               const isActive = tab === key;
               return (
-                <div
+                <button type="button"
                   key={key}
                   onClick={() => setTab(key)}
                   className="press"
-                  style={{
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                     cursor: "pointer", flex: 1
                   }}
@@ -577,7 +584,7 @@ export default function App() {
                   <span style={{ fontSize: 9.5, fontWeight: isActive ? 700 : 500, color: isActive ? t.a1 : t.muted }}>
                     {label}
                   </span>
-                </div>
+                </button>
               );
             })}
           </nav>

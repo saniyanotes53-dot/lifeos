@@ -101,14 +101,14 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
             {Object.entries(PALETTES).map(([key, p]) => {
               const isSelected = scheme === key;
               return (
-                <div
+                <button type="button"
                   key={key}
                   onClick={() => {
                     setScheme(key);
                     localStorage.setItem("lifeos_scheme", key);
                   }}
                   className="press card-hover"
-                  style={{
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     padding: "14px 12px", borderRadius: 14,
                     background: isSelected ? t.surface2 : "transparent",
                     border: `2px solid ${isSelected ? t.a1 : t.line}`,
@@ -126,7 +126,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                   <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? t.a1 : t.text }}>
                     {p.name}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -136,14 +136,14 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
               <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Light / Dark Mode</div>
               <div style={{ fontSize: 11.5, color: t.muted }}>Switch between ambient dark and crisp light canvas</div>
             </div>
-            <div
+            <button type="button"
               onClick={() => {
                 const nextMode = theme === "dark" ? "light" : "dark";
                 setTheme(nextMode);
                 localStorage.setItem("lifeos_theme", nextMode);
               }}
               className="press"
-              style={{
+              style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                 display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
                 borderRadius: 12, background: t.surface2, border: `1px solid ${t.line}`,
                 cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: t.text
@@ -151,7 +151,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
             >
               {theme === "dark" ? <Moon size={15} color={t.a1} /> : <Sun size={15} color={t.a1} />}
               <span>{theme === "dark" ? "Dark Mode" : "Light Mode"}</span>
-            </div>
+            </button>
           </div>
         </Card>
 
@@ -162,14 +162,14 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
             Change Password
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <input
+            <input aria-label="Current password (optional)"
               type="password"
               style={inputStyle(t)}
               placeholder="Current password (optional)"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
-            <input
+            <input aria-label="New password (min 6 chars)"
               type="password"
               style={inputStyle(t)}
               placeholder="New password (min 6 chars)"
@@ -196,7 +196,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Timetable & Task Reminders</div>
                 <div style={{ fontSize: 11.5, color: t.muted }}>Alerts when scheduled time blocks arrive</div>
               </div>
-              <input
+              <input aria-label="Timetable and task reminders"
                 type="checkbox"
                 checked={notifs.timetableReminders}
                 onChange={() => toggleNotif("timetableReminders")}
@@ -209,7 +209,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Weekly Email Digest</div>
                 <div style={{ fontSize: 11.5, color: t.muted }}>Summary of completed tasks, sleep average, and spending</div>
               </div>
-              <input
+              <input aria-label="Weekly email digest"
                 type="checkbox"
                 checked={notifs.weeklyDigest}
                 onChange={() => toggleNotif("weeklyDigest")}
@@ -222,7 +222,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Monthly Digest & Trends</div>
                 <div style={{ fontSize: 11.5, color: t.muted }}>Month-over-month health & budget comparative insights</div>
               </div>
-              <input
+              <input aria-label="Monthly digest"
                 type="checkbox"
                 checked={notifs.monthlyDigest}
                 onChange={() => toggleNotif("monthlyDigest")}

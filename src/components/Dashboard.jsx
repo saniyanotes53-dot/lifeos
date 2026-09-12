@@ -4,10 +4,12 @@ import {
   Headphones, DollarSign, Flame, CheckCircle2, Circle, Zap, ArrowRight, ShieldCheck
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis } from "recharts";
-import { dayName, PRI_KEY } from "../theme";
+import { todayStr as getToday, dayName, PRI_KEY } from "../theme";
 import { Card, SectionLabel, Empty, ThemeToggle, Hero, ProgressRing, StatChip } from "./primitives";
 import { ProgressOverviewCard } from "./ProgressBars";
 import AiCoachCard from "./AiCoachCard";
+import { dateRange } from "../utils/dates";
+import { sleepByDay } from "../utils/analytics";
 import { useToast } from "./Toast";
 
 export default function Dashboard({
@@ -22,15 +24,20 @@ export default function Dashboard({
   setTheme,
   onOpenProfile,
   onOpenWealth,
-  onOpenFocus
+  onOpenFocus,
+  blocks = [],
+  onOpenHealthView
 }) {
   const toast = useToast();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getToday();
   const openTasks = tasks.filter(x => !x.done);
   const pct = tasks.length ? Math.round((tasks.filter(x => x.done).length / tasks.length) * 100) : 0;
   const priVal = (p) => ({ High: 0, Med: 1, Low: 2 }[p] ?? 3);
   const top = [...openTasks].sort((a, b) => priVal(a.priority) - priVal(b.priority)).slice(0, 3);
-  const lastSleep = sleep[0];
+  const sleepWeek = sleepByDay(sleep, dateRange(7, todayStr));
+  const lastSleep = sleepByDay(sleep).filter(x => x.date <= todayStr).at(-1);
+  const currentTime = new Date().toTimeString().slice(0, 5);
+  const upcoming = blocks.filter(x => !x.done && x.date === todayStr && x.time >= currentTime).sort((a, b) => a.time.localeCompare(b.time))[0];
   const spentToday = tx.filter(x => x.date === todayStr && x.type === "expense").reduce((s, x) => s + (Number(x.amount) || 0), 0);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -50,6 +57,15 @@ export default function Dashboard({
       { id: "h5", label: "Zero Unplanned Spending", done: false, xp: 25 },
     ];
   });
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(habitStorageKey) || "null");
+      setHabits(previous => Array.isArray(saved) ? saved : previous.map(h => ({ ...h, done: false })));
+    } catch {
+      setHabits(previous => previous.map(h => ({ ...h, done: false })));
+    }
+  }, [habitStorageKey]);
 
   const toggleHabit = (id) => {
     const next = habits.map(h => {
@@ -73,7 +89,7 @@ export default function Dashboard({
   return (
     <div style={{ position: "relative" }}>
       <Hero t={t} height={190} />
-      <div style={{ position: "relative", padding: "20px 24px" }}>
+      <div className="dashboard-content" style={{ position: "relative", padding: "20px 24px" }}>
         {/* Header greeting & Theme Toggle */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
           <div>
@@ -89,28 +105,55 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* AI LIFE COACH INTELLIGENCE CARD (PRO FEATURE) */}
-        <AiCoachCard
-          t={t}
-          tasks={tasks}
-          sleep={sleep}
-          tx={tx}
-          workouts={workouts}
-          onOpenFocus={onOpenFocus}
-          setTab={setTab}
-        />
+        {/* Two-Column Grid for Priorities & Sleep */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14, marginBottom: 14 }}>
+          {/* Priorities */}
+          <div>
+            <SectionLabel t={t} text="Your next priorities" action="See all" onAction={() => setTab("tasks")} />
+            <Card t={t} style={{ minHeight: 140 }}>
+              {top.length === 0 && <Empty t={t} text="Nothing pending — add a task to plan your day." />}
+              {top.map((x, i) => (
+                <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < top.length - 1 ? `1px solid ${t.line}` : "none" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 4, background: t[PRI_KEY[x.priority]] }} />
+                  <div style={{ fontSize: 13.5, color: t.text, flex: 1 }}>{x.title}</div>
+                  <div style={{ fontSize: 11, color: t.muted }}>{x.priority}</div>
+                </div>
+              ))}
+            </Card>
+          </div>
+
+          {/* Sleep Graph */}
+          <div>
+            <SectionLabel t={t} text="Sleep · past 7 days" action="Log" onAction={() => onOpenHealthView ? onOpenHealthView("sleep") : setTab("health")} />
+            <Card t={t} style={{ minHeight: 140 }}>
+              {sleepWeek.length === 0 ? <Empty t={t} text="No sleep logged in the past 7 days." /> : <div style={{ height: 120 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sleepWeek}>
+                    <XAxis dataKey="date" tickFormatter={dayName} tick={{ fill: t.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <Bar dataKey="hours" radius={[5, 5, 0, 0]} fill={t.a1} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>}
+            </Card>
+          </div>
+        </div>
+
+        <Card t={t} onClick={() => setTab("timetable")} style={{ marginBottom: 16 }}>
+          <div style={{ color: t.muted, fontSize: 14 }}>Next on your timetable</div>
+          <div style={{ marginTop: 6, fontWeight: 700 }}>{upcoming ? `${upcoming.time} — ${upcoming.label}` : "No upcoming blocks today. Plan your next activity."}</div>
+        </Card>
 
         {/* Quick Launch Pro Bar */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
           gap: 10,
           marginBottom: 16
         }}>
-          <div
+          <button type="button"
             onClick={onOpenFocus ? onOpenFocus : () => setTab("focus")}
             className="press card-hover"
-            style={{
+            style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
               background: `linear-gradient(135deg, ${t.a1}22, ${t.a3}15)`,
               border: `1px solid ${t.a1}44`,
               borderRadius: 14,
@@ -137,12 +180,12 @@ export default function Dashboard({
               <div style={{ fontSize: 11, color: t.muted }}>Binaural Beats & Timer</div>
             </div>
             <ArrowRight size={15} color={t.a1} />
-          </div>
+          </button>
 
-          <div
+          <button type="button"
             onClick={onOpenWealth}
             className="press card-hover"
-            style={{
+            style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
               background: `linear-gradient(135deg, ${t.good}20, ${t.a1}12)`,
               border: `1px solid ${t.good}44`,
               borderRadius: 14,
@@ -169,17 +212,17 @@ export default function Dashboard({
               <div style={{ fontSize: 11, color: t.muted }}>5-Year Compound Growth</div>
             </div>
             <ArrowRight size={15} color={t.good} />
-          </div>
+          </button>
         </div>
 
         {/* Top Metric Cards Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14, marginBottom: 16 }}>
           <Card t={t} style={{ display: "flex", alignItems: "center", gap: 16, margin: 0, padding: 18 }} onClick={() => setTab("tasks")}>
             <ProgressRing t={t} pct={pct} size={62}>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>{pct}%</div>
             </ProgressRing>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, color: t.text, fontWeight: 700 }}>{openTasks.length} tasks open today</div>
+              <div style={{ fontSize: 14, color: t.text, fontWeight: 700 }}>{openTasks.length} open {openTasks.length === 1 ? "task" : "tasks"}</div>
               <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>Tap to prioritize your focus</div>
             </div>
           </Card>
@@ -204,13 +247,13 @@ export default function Dashboard({
             }}
           />
           <Card t={t} style={{ padding: "14px 16px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))", gap: 10 }}>
               {habits.map(h => (
-                <div
+                <button type="button"
                   key={h.id}
                   onClick={() => toggleHabit(h.id)}
                   className="press"
-                  style={{
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
@@ -241,11 +284,22 @@ export default function Dashboard({
                   <span style={{ fontSize: 10.5, color: h.done ? t.good : t.muted, fontWeight: 700 }}>
                     +{h.xp} XP
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </Card>
         </div>
+
+        {/* AI LIFE COACH INTELLIGENCE CARD (PRO FEATURE) */}
+        <AiCoachCard
+          t={t}
+          tasks={tasks}
+          sleep={sleep}
+          tx={tx}
+          workouts={workouts}
+          onOpenFocus={onOpenFocus}
+          setTab={setTab}
+        />
 
         {/* Weekly Progress Bars Overview */}
         <div style={{ marginBottom: 16 }}>
@@ -256,41 +310,7 @@ export default function Dashboard({
             sleep={sleep}
             tx={tx}
             period="week"
-            budgetLimit={10000}
           />
-        </div>
-
-        {/* Two-Column Grid for Priorities & Sleep */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14, marginBottom: 14 }}>
-          {/* Priorities */}
-          <div>
-            <SectionLabel t={t} text="Today's priorities" action="See all" onAction={() => setTab("tasks")} />
-            <Card t={t} style={{ minHeight: 140 }}>
-              {top.length === 0 && <Empty t={t} text="Nothing pending — add a task to plan your day." />}
-              {top.map((x, i) => (
-                <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < top.length - 1 ? `1px solid ${t.line}` : "none" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: t[PRI_KEY[x.priority]] }} />
-                  <div style={{ fontSize: 13.5, color: t.text, flex: 1 }}>{x.title}</div>
-                  <div style={{ fontSize: 11, color: t.muted }}>{x.priority}</div>
-                </div>
-              ))}
-            </Card>
-          </div>
-
-          {/* Sleep Graph */}
-          <div>
-            <SectionLabel t={t} text="Sleep this week" action="Log" onAction={() => setTab("health")} />
-            <Card t={t} style={{ minHeight: 140 }}>
-              <div style={{ height: 120 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sleep}>
-                    <XAxis dataKey="date" tickFormatter={dayName} tick={{ fill: t.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <Bar dataKey="hours" radius={[5, 5, 0, 0]} fill={t.a1} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          </div>
         </div>
 
         {/* Timetable link */}
@@ -301,7 +321,7 @@ export default function Dashboard({
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, color: t.text, fontWeight: 700 }}>Timetable & Reminders</div>
-            <div style={{ fontSize: 12, color: t.muted }}>Schedule time blocks and receive proactive push alerts</div>
+            <div style={{ fontSize: 12, color: t.muted }}>Plan time blocks and manage reminders</div>
           </div>
           <ChevronLeft size={18} color={t.muted} style={{ transform: "rotate(180deg)" }} />
         </Card>

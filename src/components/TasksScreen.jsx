@@ -1,3 +1,4 @@
+import { IconBtn } from "./primitives";
 import React, { useState, useMemo } from "react";
 import {
   Plus, Check, X, Calendar, Clock, Headphones, Search, Filter,
@@ -99,7 +100,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
         {/* Executive Task Overview Banner */}
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
           gap: 12,
           marginBottom: 16
         }}>
@@ -145,14 +146,14 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
         {/* Task Creator Input */}
         <Card t={t} style={{ padding: 14, marginBottom: 14 }}>
           <div style={{ display: "flex", gap: 8 }}>
-            <input
+            <input aria-label="Task title"
               style={{ ...inputStyle(t), flex: 1 }}
               placeholder="What do you want to accomplish next?"
               value={title}
               onChange={e => setTitle(e.target.value)}
               onKeyDown={e => e.key === "Enter" && add()}
             />
-            <select
+            <select aria-label="Task priority"
               style={{ ...inputStyle(t), width: 94 }}
               value={pri}
               onChange={e => setPri(e.target.value)}
@@ -225,7 +226,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
             maxWidth: 280
           }}>
             <Search size={14} color={t.muted} style={{ position: "absolute", left: 10, top: 11 }} />
-            <input
+            <input aria-label="Search tasks"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search tasks…"
@@ -247,13 +248,13 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
               <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, display: "flex", alignItems: "center", gap: 6 }}>
                 <Clock size={15} color={t.a1} /> Schedule "{schedulingTask.title}"
               </div>
-              <X size={16} color={t.muted} style={{ cursor: "pointer" }} onClick={() => setSchedulingTask(null)} />
+              <IconBtn t={t} label="Close dialog" onClick={() => setSchedulingTask(null)}><X size={16} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <div style={{ flex: 1, minWidth: 140 }}>
                 <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>Date</div>
-                <input
+                <input aria-label="Schedule date"
                   type="date"
                   style={inputStyle(t)}
                   value={scheduleDate}
@@ -262,7 +263,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
               </div>
               <div style={{ flex: 1, minWidth: 100 }}>
                 <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>Time</div>
-                <input
+                <input aria-label="Schedule time"
                   type="time"
                   style={inputStyle(t)}
                   value={scheduleTime}
@@ -299,18 +300,18 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
                 }}
               >
                 {/* Custom Checkbox */}
-                <div
-                  onClick={() => toggle(x)}
+                <button type="button"
+                  role="checkbox" aria-checked={!!x.done} aria-label={`Complete task: ${x.title}`} onClick={() => toggle(x)}
                   className="press"
-                  style={{
-                    width: 22, height: 22, borderRadius: 7, border: `1.5px solid ${t[PRI_KEY[x.priority]] || t.a1}`,
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
+                    width: 44, height: 44, borderRadius: 7, border: `1.5px solid ${t[PRI_KEY[x.priority]] || t.a1}`,
                     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
                     background: x.done ? (t[PRI_KEY[x.priority]] || t.a1) : "transparent",
                     transition: "all .15s ease"
                   }}
                 >
                   {x.done && <Check size={14} color={t.bg} />}
-                </div>
+                </button>
 
                 {/* Title and metadata */}
                 <div style={{ flex: 1, minWidth: 0 }}>

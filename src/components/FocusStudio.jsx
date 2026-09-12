@@ -6,13 +6,13 @@ import {
 import { Card, Screen, PrimaryButton, GhostButton, ProgressRing } from "./primitives";
 import { useToast } from "./Toast";
 
-export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
+export default function FocusStudio({ t, tasks = [], onCompleteTask, initialTaskId }) {
   const toast = useToast();
   // Timer states
   const [mode, setMode] = useState("focus"); // "focus" (25m), "short" (5m), "long" (15m)
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId || "");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Focus Stats (stored in localStorage)
@@ -364,7 +364,7 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
                 </span>
               </div>
               <div style={{ fontSize: 12, color: t.muted }}>
-                Scientific Pomodoro intervals paired with generative acoustic white noise & binaural alpha waves.
+                A focus timer with optional background sounds.
               </div>
             </div>
           </div>
@@ -492,7 +492,7 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
             <div style={{ fontSize: 11.5, color: t.muted, marginBottom: 6, fontWeight: 600 }}>
               🎯 Target Task for this Session:
             </div>
-            <select
+            <select aria-label="Linked task"
               value={selectedTaskId}
               onChange={e => setSelectedTaskId(e.target.value)}
               style={{
@@ -521,11 +521,11 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
           <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <Sparkles size={16} color={t.a1} /> Generative Acoustic Soundscapes
             <span style={{ fontSize: 11, color: t.muted, fontWeight: 400 }}>
-              (Pure Web Audio synthesis · 100% Offline ready)
+              (Sounds generated on this device)
             </span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12 }}>
             {[
               { id: "none", name: "Silence", desc: "No audio", icon: VolumeX },
               { id: "alpha", name: "10Hz Alpha Beats", desc: "Binaural flow state", icon: Headphones },
@@ -536,11 +536,11 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
               const active = soundscape === s.id;
               const Icon = s.icon;
               return (
-                <div
+                <button type="button"
                   key={s.id}
                   onClick={() => handleSoundscapeChange(s.id)}
                   className="press card-hover"
-                  style={{
+                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     background: active ? `linear-gradient(135deg, ${t.a1}22, ${t.a3}15)` : t.surface,
                     border: `1px solid ${active ? t.a1 : t.line}`,
                     borderRadius: 14,
@@ -567,7 +567,7 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
                       {s.desc}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -586,7 +586,7 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask }) {
             }}>
               <Volume2 size={16} color={t.a1} />
               <span style={{ fontSize: 12, color: t.muted }}>Sound Volume</span>
-              <input
+              <input aria-label="Sound volume"
                 type="range"
                 min="0.05"
                 max="1"

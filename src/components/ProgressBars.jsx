@@ -1,9 +1,11 @@
 import React from "react";
 import { Check, Moon, Wallet, Flame } from "lucide-react";
+import { filterPeriod, sleepByDay, money, percentage as displayPercentage } from "../utils/analytics";
+import { dateRange } from "../utils/dates";
 import { Card } from "./primitives";
 
 export function HorizontalProgressBar({ t, value = 0, max = 100, label, sublabel, color, icon: Icon, unit = "" }) {
-  const percentage = max > 0 ? Math.min(100, Math.max(0, Math.round((value / max) * 100))) : 0;
+  const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
   const barColor = color || t.a1;
 
   return (
@@ -14,7 +16,7 @@ export function HorizontalProgressBar({ t, value = 0, max = 100, label, sublabel
           <span>{label}</span>
         </div>
         <div style={{ fontSize: 12, color: t.muted }}>
-          <span style={{ color: t.text, fontWeight: 700 }}>{value}{unit}</span> / {max}{unit} ({percentage}%)
+          <span style={{ color: t.text, fontWeight: 700 }}>{unit === "₹" ? money(value) : `${value}${unit}`}</span> / {unit === "₹" ? money(max) : `${max}${unit}`} ({displayPercentage(value, max)}%)
         </div>
       </div>
       <div style={{
@@ -34,23 +36,14 @@ export function HorizontalProgressBar({ t, value = 0, max = 100, label, sublabel
   );
 }
 
-export function ProgressOverviewCard({ t, title = "Progress Overview", tasks = [], sleep = [], tx = [], budgetLimit = 30000, period = "week" }) {
-  const now = new Date();
+export function ProgressOverviewCard({ t, title = "Progress Overview", tasks = [], sleep = [], tx = [], budgetLimit = null, period = "week" }) {
   const daysCount = period === "week" ? 7 : 30;
-  const cutoff = new Date(now.getTime() - daysCount * 24 * 60 * 60 * 1000);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-  // Filter items in period
-  const periodTasks = tasks.filter(x => !x.date || x.date >= cutoffStr);
+  const periodTasks = filterPeriod(tasks, daysCount);
   const doneTasks = periodTasks.filter(x => x.done).length;
   const totalTasks = periodTasks.length;
-
-  const periodSleep = sleep.filter(x => !x.date || x.date >= cutoffStr);
-  const goodSleepNights = periodSleep.filter(x => (x.hours || 0) >= 7).length;
-
-  const spent = tx
-    .filter(x => (!x.date || x.date >= cutoffStr) && x.type === "expense")
-    .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const periodSleep = sleepByDay(sleep, dateRange(daysCount));
+  const goodSleepNights = periodSleep.filter(x => x.hours >= 7).length;
+  const spent = filterPeriod(tx, daysCount).filter(x => x.type === "expense").reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
 
   return (
     <Card t={t} style={{ padding: 18 }}>
@@ -65,10 +58,10 @@ export function ProgressOverviewCard({ t, title = "Progress Overview", tasks = [
         t={t}
         label="Tasks Completed"
         value={doneTasks}
-        max={totalTasks > 0 ? totalTasks : 1}
+        max={totalTasks}
         color={t.a1}
         icon={Check}
-        sublabel={`${doneTasks} of ${totalTasks} tasks finished`}
+        sublabel={`${doneTasks} of ${totalTasks} tasks added in this period are finished`}
       />
 
       <HorizontalProgressBar
@@ -78,10 +71,10 @@ export function ProgressOverviewCard({ t, title = "Progress Overview", tasks = [
         max={daysCount}
         color={t.a2}
         icon={Moon}
-        sublabel={`${goodSleepNights} nights met 7+ hours target`}
+        sublabel={`${goodSleepNights} dates met the target; ${periodSleep.length} of ${daysCount} dates logged`}
       />
 
-      <HorizontalProgressBar
+      {budgetLimit > 0 ? <HorizontalProgressBar
         t={t}
         label="Budget Spending"
         value={spent}
@@ -89,8 +82,8 @@ export function ProgressOverviewCard({ t, title = "Progress Overview", tasks = [
         color={spent > budgetLimit ? t.warm : t.good}
         icon={Wallet}
         unit="₹"
-        sublabel={`₹${spent} spent vs ₹${budgetLimit} limit`}
-      />
+        sublabel={`${money(spent)} spent vs ${money(budgetLimit)} limit`}
+      /> : <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, fontSize: 14 }}><span>Expenses logged in this period</span><strong>{money(spent)}</strong></div>}
     </Card>
   );
 }
