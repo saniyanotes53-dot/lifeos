@@ -1,31 +1,45 @@
-import {getToken,deleteToken,onMessage,getMessaging,isSupported} from 'firebase/messaging';
-import {app} from './firebase';
-import {userRequest} from './assistant/api';
-const VAPID_KEY=import.meta.env.VITE_FIREBASE_VAPID_KEY||'BFmI--duNNf3x044TIjwpFW7zwtEPNrf-l1W43RQVj64ft73gTSYGRcUG5RIUi-AqC9D70zyGGPe79amfCETJSM';
-async function client(){
-  if(typeof Notification==='undefined'||!await isSupported())throw new Error('This browser does not support push notifications.');
-  return getMessaging(app);
+import {parseLocalDate} from './utils/dates.js';
+const preference=uid=>`lifeos_reminders_${uid}`;
+export function remindersEnabled(uid){
+  try{return !!uid&&localStorage.getItem(preference(uid))==='true';}catch{return false;}
 }
-export async function enablePush(user){
-  if(!user)throw new Error('Sign in to enable reminders.');
-  await userRequest(user,'/api/push-device');
-  const messaging=await client();
-  if(await Notification.requestPermission()!=='granted')throw new Error('Notifications are blocked. Allow them in your browser settings to enable reminders.');
-  const registration=await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-  await navigator.serviceWorker.ready;
-  const token=await getToken(messaging,{vapidKey:VAPID_KEY,serviceWorkerRegistration:registration});
-  if(!token)throw new Error('Could not register this device. Please try again.');
-  await userRequest(user,'/api/push-device','POST',{token});
-  sessionStorage.setItem('lifeos_push_device',token);
-  return token;
+export async function enableReminders(user){
+  if(!user?.uid)throw new Error('Sign in to enable reminders.');
+  localStorage.setItem(preference(user.uid),'true');
+  window.dispatchEvent(new Event('lifeos-reminders-change'));
+  return true;
 }
-export async function disablePush(user){
-  const token=sessionStorage.getItem('lifeos_push_device');
-  try { if(token&&user)await userRequest(user,'/api/push-device','DELETE',{token}); }
-  finally { if(await isSupported())await deleteToken(getMessaging(app)); sessionStorage.removeItem('lifeos_push_device'); }
+export async function disableReminders(user){
+  if(user?.uid)localStorage.removeItem(preference(user.uid));
+  window.dispatchEvent(new Event('lifeos-reminders-change'));
 }
-export function onForegroundPush(callback){
-  let stopped=false,unsubscribe=()=>{};
-  isSupported().then(ok=>{if(ok&&!stopped)unsubscribe=onMessage(getMessaging(app),callback);}).catch(()=>{});
-  return ()=>{stopped=true;unsubscribe();};
+export function dueReminders(blocks,tasks,now,seen){
+  const complete=new Set(tasks.filter(t=>t.done).map(t=>t.id));
+  return blocks.filter(b=>{
+    if(b.done||complete.has(b.taskId)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(b.time||''))return false;
+    const when=parseLocalDate(b.date);
+    if(!when)return false;
+    const [h,m]=b.time.split(':').map(Number);when.setHours(h,m,0,0);
+    const key=`${b.id}:${when.getTime()}`;
+    if(when.getTime()>now||now-when.getTime()>5*60000||seen.has(key))return false;
+    seen.add(key);return true;
+  });
+}
+export function watchReminders(uid,blocks,tasks,callback){
+  if(!uid)return ()=>{};
+  const key=`lifeos_reminders_seen_${uid}`;
+  let seen;
+  try{seen=new Set(JSON.parse(sessionStorage.getItem(key)||'[]'));}catch{seen=new Set();}
+  function check(){
+    if(!remindersEnabled(uid)||document.visibilityState==='hidden')return;
+    const due=dueReminders(blocks,tasks,Date.now(),seen);
+    if(!due.length)return;
+    callback(due.map(b=>`${b.time} · ${b.label||'Scheduled block'}`).join(' / '));
+    try{sessionStorage.setItem(key,JSON.stringify([...seen].slice(-500)));}catch{/* Memory still prevents duplicates during this subscription. */}
+  }
+  check();const timer=setInterval(check,15000);
+  window.addEventListener('focus',check);
+  window.addEventListener('lifeos-reminders-change',check);
+  document.addEventListener('visibilitychange',check);
+  return ()=>{clearInterval(timer);window.removeEventListener('focus',check);window.removeEventListener('lifeos-reminders-change',check);document.removeEventListener('visibilitychange',check);};
 }

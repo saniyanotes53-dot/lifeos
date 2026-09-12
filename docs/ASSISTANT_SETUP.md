@@ -1,63 +1,84 @@
-# Life OS assistant setup
+# Life OS assistant: direct Gemini setup
 
-The implementation is local and has not been pushed or deployed. The active project is the repository root, not the legacy `lifeos/` subdirectory.
+The assistant now talks directly to Gemini through Vercel. Tencent, Sendbird,
+Firebase Cloud Functions, a Blaze upgrade, a service-account key and a cron
+scheduler are not required by this implementation.
 
-## Included
+## Vercel setup
 
-- **Assistant navigation:** responsive chat, suggested prompts, a planning panel, report summaries, and notification controls.
-- **Built-in planner:** orders open tasks by priority, avoids existing blocks, leaves five-minute breaks, and shows tasks that do not fit. Existing blocks without duration reserve 30 minutes. It never changes records until Apply plan is clicked.
-- **Atomic timetable apply:** Firebase-authenticated API rechecks live tasks and timetable in a Firestore transaction. Stable IDs make retries idempotent. It does not overwrite existing blocks. The server needs Firebase Admin credentials before Apply works.
-- **Tencent chat:** official `@tencentcloud/chat` Web Core SDK, dynamically loaded on connection, with server-generated short-lived UserSig credentials. No Tencent secret or admin signature is exposed to the browser. Account IDs are derived from verified Firebase identities.
-- **Custom AI replies:** Gemini generates advice on the server; replies are delivered to the current user through Tencent's server API. The bot has no database mutation tools. Scheduling is handled by the reviewed plan action. Cloud conversations share only typed messages and the latest 12 cloud turns with Tencent and Gemini; built-in report data is not automatically uploaded.
-- **Push reminders:** device registration, Firebase Messaging service worker, foreground banner, notification click-through, and a protected reminder dispatcher. New assistant and manually created timetable entries include an absolute reminder timestamp. Older entries are not silently assigned a timezone or migrated.
+Use the repository root as Root Directory, Vite as Framework Preset,
+`npm run build` as Build Command and `dist` as Output Directory.
+The root `api/` folder must be deployed along with the frontend.
 
-## Server configuration
+Set these environment variables for Production (and Preview if testing a branch):
 
-Set these in the hosting provider's server environment. Do not prefix secrets with `VITE_`, paste them in chat, or commit them.
-
-| Variable | Purpose |
+| Name | Value |
 | --- | --- |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin service-account JSON for the existing Life OS Firebase project; required for schedule apply, chat authentication, and push. |
-| `TENCENT_SDK_APP_ID` | Tencent Chat application ID. |
-| `TENCENT_CHAT_SECRET_KEY` | Tencent application's server-side UserSig secret. |
-| `TENCENT_ADMIN_USER_ID` | Tencent Chat administrator account authorized for the server messaging API. |
-| `TENCENT_BOT_USER_ID` | Registered Tencent Chat bot account used as message sender and recipient. |
-| `GEMINI_API_KEY` | Server-side Google Gemini API key. |
-| `GEMINI_MODEL` | A generateContent-compatible text model enabled for that Google account. No paid model is selected automatically. |
-| `CRON_SECRET` | A strong random secret required as `Authorization: Bearer <secret>` when invoking `/api/reminders`. |
-| `REMINDERS_ENABLED` | Set `true` only after the scheduler and Firestore index are configured. |
-| `VITE_FIREBASE_VAPID_KEY` | Optional public Firebase Web Push certificate key. Existing project's public key is the fallback. |
+| `GEMINI_API_KEY` | Your Google AI Studio key, saved as a server secret. |
+| `GEMINI_MODEL` | Your available generateContent text model; defaults to `gemini-2.5-flash-lite` when omitted. |
+| `FIREBASE_PROJECT_ID` | Optional; defaults to this app's existing project, `lifeos-61443`. Only change it together with `src/firebase.js`. |
 
-Create/import the bot account and administrator in the Tencent Chat application. Enable one-to-one messaging and confirm the application region supports the `console.tim.qq.com` REST endpoint used in `server/bot.js`. This implementation provides its own AI reply endpoint; it does not require a Tencent callback webhook. Keep the app's Tencent message retention policy and Google model billing/quotas in mind. The chat free tier is separate from AI model and hosting charges.
+Keep the existing Gemini variables if you already saved them. Redeploy after
+changing environment variables. Never prefix the Gemini key with `VITE_` or put
+it in source code. Old Tencent, cron, VAPID and `FIREBASE_SERVICE_ACCOUNT_JSON`
+variables are no longer used by the assistant. They can be removed from Vercel.
 
-Firebase Admin uses the existing Firebase project. Preserve the current per-user Firestore rules. `_pushDevices`, `_chatLimits`, and `_reminderDeliveries` are server-only collections and must not be opened to browser clients. Deploy the collection-group `remindAt` index from `firestore.indexes.json` before activating reminders. A TTL policy for `_reminderDeliveries.expiresAt` can clean up old delivery receipts.
+## How it works
 
-## Scheduling push delivery
+- **Chat:** a verified Firebase ID token authenticates `/api/bot-reply`. Gemini
+  receives only the typed message and up to 12 recent AI conversation turns.
+  Weekly records are not automatically sent to Google. The reply returns in
+  the same HTTP request; there is no separate chat connection.
+- **Planning:** “Plan my day” or Suggest timetable creates a local preview from
+  open tasks. Only Apply saves it. `/api/apply-plan` uses the user's Firebase
+  token with the Firestore REST API, so existing user-ownership Security Rules
+  apply. One transaction checks current tasks and that day's timetable before
+  creating blocks. Conflicts require a fresh plan; retries do not overwrite
+  or duplicate previously created blocks.
+- **Reports:** Analyze my week summarizes saved records locally, without an AI
+  request and without filling in missing records with invented numbers.
+- **Reminders:** enable in Assistant or Timetable. Alerts appear inside Life OS
+  across screens while it is open and visible. Checks run about every 15 seconds
+  and when returning to the page; only the last five minutes are caught up.
+  Completed blocks/tasks are skipped. Sleeping/closed devices do not receive
+  background push. The preference is per user and browser; logout disables it.
 
-Run an authenticated GET to `/api/reminders` every minute using a scheduler supported by the hosting plan. An example Vercel cron entry is supplied in `docs/vercel-cron.example.json`; merge it into the existing configuration only when ready to deploy. No cron is activated by this change.
+The Firebase Admin package is used only to validate token signatures with
+Google's public certificates and the configured project ID. It does not use
+an admin credential or bypass Firestore rules. Revocation/account-disabled
+lookups are not performed; an already issued token can remain valid until its
+normal expiry (typically one hour).
 
-The dispatcher looks back five minutes, processes at most 200 due entries per invocation, claims each delivery, skips completed/deleted entries, and removes expired device tokens. It uses a generic notification body to avoid exposing task titles on a lock screen. Push is best effort: browser permission, OS delivery policies, network access, and a functioning scheduler are required. Delivery leases reduce duplicates but cannot guarantee exactly-once delivery after a crash. A scheduler outage longer than five minutes can miss reminders. High-volume deployments should move dispatch into a queue with per-device retry tracking and pagination. Do not enable the old nested project's reminder scheduler alongside this dispatcher.
+## Free-tier limits and troubleshooting
 
-Users must opt in on each browser. Disable reminders deregisters the current token; logout also attempts token removal and invalidates the browser token. Existing legacy `pushTokens` documents are not used by the new dispatcher. Re-enabling on a device assigns it to the currently signed-in account. iOS browser push availability depends on platform requirements, including installed web-app support where applicable.
+Gemini, Firestore and Vercel still have their own usage limits. The chat has a
+best-effort 10 requests/minute/user throttle per server instance, not a shared
+quota or billing cap. Keep Google billing disabled if you want to remain on
+its unpaid tier. No paid model fallback is selected automatically.
 
-## Validation
+- **Gemini usage limit reached:** retry later; local planning/reports still work.
+- **Gemini rejected configuration:** check the key and model in Vercel, then redeploy.
+- **Model unavailable:** choose a model available to your key and update `GEMINI_MODEL`.
+- **Please sign in again:** sign out and back in to refresh authentication.
+- **Saving blocked by Firestore:** check `firestore.rules` against the rules
+  published in Firebase Console. Never solve this by allowing public access.
+- **Assistant API unavailable:** confirm Vercel builds the repository root,
+  including `api/`, rather than the legacy nested `lifeos/` folder or just `dist`.
 
-Run `npm ci`, `npm test`, and `npm run build` from the root. The automated suite covers 16 cases: original analytics regressions, planner priorities/conflicts/past dates, missing-data reporting, API authentication, cron authentication, Tencent identity isolation, and mocked AI/delivery payloads. No real Tencent, Gemini, FCM, or Firebase Admin call was made during tests.
+## Verification
 
-Before release, test with staging credentials:
+Run `npm ci`, `npm test`, `npm run build`. Tests mock external services and cover
+unauthenticated requests, direct replies, provider errors, throttling, atomic
+plan saving, conflicts, retries, local reminder timing and existing analytics.
+Live Gemini replies and Firestore rules still require a signed-in smoke test:
 
-1. Sign in as two different users and confirm isolated chat and timetable records.
-2. Generate a plan, change an overlapping block in another session, and verify Apply rejects the stale proposal. Re-applying a saved plan should not duplicate entries.
-3. Connect cloud chat; check send, reply, disconnect, reconnect, and unavailable-provider errors.
-4. Opt into reminders, schedule a near-future activity, check foreground and background delivery, click-through, opt-out, and logout.
-5. Inspect 320/375/768/1366-pixel layouts, keyboard controls, and the report print view.
+1. Open Assistant and send “Give me three tips to focus.”
+2. Add an open task, suggest a future timetable and press Apply once.
+3. Confirm the block in Timetable, enable reminders and keep the page visible
+   until its scheduled time. Switch to another screen to check the global alert.
 
-Browser visual verification and live service tests are pending. The build retains Vite's large-chunk advisory; Tencent itself is lazy-loaded as a separate chunk.
-
-## Primary references
-
-- Tencent SDK repository: https://github.com/TencentCloud/TIMSDK
-- UserSig library: https://github.com/tencentyun/tls-sig-api-v2-node
-- Web SDK APIs: installed package `node_modules/@tencentcloud/chat/index.d.ts`
-- Firebase browser messaging: https://firebase.google.com/docs/cloud-messaging/web/receive-messages
-- Gemini REST generation: https://ai.google.dev/api
+Primary references:
+- https://firebase.google.com/docs/auth/admin/verify-id-tokens
+- https://firebase.google.com/docs/firestore/use-rest-api
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://vercel.com/docs/environment-variables/managing-environment-variables

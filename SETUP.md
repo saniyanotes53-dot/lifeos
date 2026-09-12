@@ -1,3 +1,5 @@
+> Current assistant setup: see [docs/ASSISTANT_SETUP.md](docs/ASSISTANT_SETUP.md). The assistant uses direct Gemini and in-app reminders; older push setup below is legacy.
+
 # Life OS — Firebase integration handoff
 
 These files wire your Life OS UI to a real Firebase backend: accounts,

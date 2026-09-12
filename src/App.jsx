@@ -22,13 +22,12 @@ import CommandPalette from "./components/CommandPalette";
 import WealthSimulatorModal from "./components/WealthSimulatorModal";
 import { ToastProvider } from "./components/Toast";
 import AssistantScreen from "./components/AssistantScreen";
-import { disablePush, onForegroundPush } from "./notifications";
+import { disableReminders, watchReminders } from "./notifications";
 import CopyrightFooter from "./components/CopyrightFooter";
 
 export default function App() {
   useLocalDay();
   const [pushNotice, setPushNotice] = useState("");
-  useEffect(() => onForegroundPush(payload => setPushNotice(payload.data?.body || payload.notification?.body || "You have a new reminder.")), []);
   const [healthView, setHealthView] = useState("goals");
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
   const [scheme, setScheme] = useState(() => localStorage.getItem("lifeos_scheme") || "blue");
@@ -55,6 +54,9 @@ export default function App() {
   const [categoryBudgets, setCategoryBudgets] = useState([]);
   const [loans, setLoans] = useState([]);
   const [bodyMetrics, setBodyMetrics] = useState([]);
+
+  useEffect(() => watchReminders(user?.uid, blocks, tasks, setPushNotice), [user?.uid, blocks, tasks]);
+  useEffect(() => { setPushNotice(""); }, [user?.uid]);
 
   // Auth persistence listener
   useEffect(() => onAuthChange((firebaseUser) => {
@@ -118,7 +120,7 @@ export default function App() {
   }, [user]);
 
   const handleLogout = async () => {
-    await disablePush(user).catch(() => {});
+    await disableReminders(user).catch(() => {});
     await logout();
     setTasks([]); setSleep([]); setWorkouts([]); setMeals([]);
     setTx([]); setBlocks([]); setWallets([]); setCategoryBudgets([]); setLoans([]); setBodyMetrics([]);

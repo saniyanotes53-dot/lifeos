@@ -31,7 +31,7 @@ export default function UserGuideModal({ t, isOpen, onClose }) {
         "Toggle between Day view and Week view grid",
         "Click 'Schedule' on any task to pin it to a time slot",
         "Completing a task synchronizes both Tasks and Timetable automatically",
-        "Enable push notifications to never miss scheduled blocks"
+        "Enable in-app reminders while Life OS is open"
       ]
     },
     {

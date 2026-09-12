@@ -1,5 +1,5 @@
 import { IconBtn } from "./primitives";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Bell, Clock, Plus, X, ChevronLeft, ChevronRight, Calendar, CheckSquare, Square,
   CalendarDays, ListFilter, Tag
@@ -8,7 +8,7 @@ import { parseLocalDate, shiftDate, weekDates as getWeekDates, formatDate } from
 import { inputStyle, todayStr, dayName } from "../theme";
 import { Card, Screen, Empty, Segmented, PrimaryButton } from "./primitives";
 import { addItem, deleteItem, updateItem } from "../firestore";
-import { enablePush } from "../notifications";
+import { enableReminders, disableReminders, remindersEnabled } from "../notifications";
 
 export default function TimetableScreen({ t, blocks = [], tasks = [], userId, user }) {
   const [view, setView] = useState("day"); // "day" or "week"
@@ -16,9 +16,12 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
   const [time, setTime] = useState("09:00");
   const [label, setLabel] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState("");
-  const [permission, setPermission] = useState(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
-  );
+  const [remindersOn, setRemindersOn] = useState(() => remindersEnabled(userId));
+  useEffect(() => {
+    const update = () => setRemindersOn(remindersEnabled(userId));
+    update();window.addEventListener('lifeos-reminders-change', update);
+    return () => window.removeEventListener('lifeos-reminders-change', update);
+  }, [userId]);
   const [pushError, setPushError] = useState("");
   const [pushLoading, setPushLoading] = useState(false);
 
@@ -33,13 +36,8 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
     setPushLoading(true);
     try {
       setPushError("");
-      const token = await enablePush(user);
-      if (token) {
-        setPermission("granted");
-
-      } else {
-        setPermission(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
-      }
+      if(remindersOn)await disableReminders(user);
+      else await enableReminders(user);
     } catch (e) {
       setPushError(e.message);
     } finally {
@@ -146,17 +144,13 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
         </div>
 
         {/* Push notification banner */}
-        <Card t={t} style={{ borderColor: permission === "granted" ? t.a1 : t.line, marginBottom: 14 }}>
+        <Card t={t} style={{ borderColor: remindersOn ? t.a1 : t.line, marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Bell size={16} color={permission === "granted" ? t.a1 : t.muted} />
+            <Bell size={16} color={remindersOn ? t.a1 : t.muted} />
             <div style={{ flex: 1, fontSize: 12, color: t.muted }}>
-              {permission === "granted"
-                ? "Push notifications & timetable reminders enabled."
-                : permission === "unsupported"
-                ? "This browser doesn't support notifications."
-                : "Enable push notifications to get reminders for scheduled blocks."}
+              {remindersOn ? "In-app reminders are on. Keep Life OS open; sleeping devices may delay alerts." : "Enable in-app reminders for scheduled blocks while Life OS is open."}
             </div>
-            {permission !== "granted" && permission !== "unsupported" && (
+            {(
               <button
                 onClick={requestPerm}
                 disabled={pushLoading}
@@ -167,7 +161,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
                   color: t.onAccent, fontSize: 11, fontWeight: 600, cursor: "pointer"
                 }}
               >
-                {pushLoading ? "…" : "Enable"}
+                {pushLoading ? "…" : remindersOn ? "Disable" : "Enable"}
               </button>
             )}
           </div>
