@@ -3,6 +3,7 @@ import {
   onSnapshot, query, orderBy,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { parseLocalDate } from "./utils/dates";
 
 const col = (uid, name) => collection(db, "users", uid, name);
 
@@ -32,6 +33,12 @@ export async function ensureUserProfile(user) {
 }
 
 export async function addItem(uid, name, data) {
+  if (name === "timetable" && parseLocalDate(data.date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(data.time || "")) {
+    const when = parseLocalDate(data.date);
+    const [h, m] = data.time.split(":").map(Number);
+    when.setHours(h, m, 0, 0);
+    data = { ...data, remindAt: when.getTime() };
+  }
   return addDoc(col(uid, name), data);
 }
 

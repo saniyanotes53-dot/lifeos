@@ -10,7 +10,7 @@ import { Card, Screen, Empty, Segmented, PrimaryButton } from "./primitives";
 import { addItem, deleteItem, updateItem } from "../firestore";
 import { enablePush } from "../notifications";
 
-export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) {
+export default function TimetableScreen({ t, blocks = [], tasks = [], userId, user }) {
   const [view, setView] = useState("day"); // "day" or "week"
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [time, setTime] = useState("09:00");
@@ -19,6 +19,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
   const [permission, setPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
+  const [pushError, setPushError] = useState("");
   const [pushLoading, setPushLoading] = useState(false);
 
   // Date navigation helpers
@@ -31,30 +32,18 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
   const requestPerm = async () => {
     setPushLoading(true);
     try {
-      const token = await enablePush();
+      setPushError("");
+      const token = await enablePush(user);
       if (token) {
         setPermission("granted");
-        await addItem(userId, "pushTokens", { token, createdAt: new Date().toISOString() });
+
       } else {
-        setPermission(Notification.permission);
+        setPermission(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
       }
     } catch (e) {
-      console.error("Push setup failed:", e);
+      setPushError(e.message);
     } finally {
       setPushLoading(false);
-    }
-  };
-
-  const scheduleLocalReminder = (b) => {
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    const [h, m] = b.time.split(":").map(Number);
-    const target = parseLocalDate(b.date || todayStr());
-    target.setHours(h, m, 0, 0);
-    const now = new Date();
-    if (target > now) {
-      setTimeout(() => {
-        try { new Notification("Life OS Reminder", { body: `${b.time} — ${b.label}` }); } catch (e) {}
-      }, Math.min(target - now, 2147483000));
     }
   };
 
@@ -70,7 +59,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
     await addItem(userId, "timetable", b);
     setLabel("");
     setSelectedTaskId("");
-    scheduleLocalReminder(b);
+
   };
 
   const toggleDone = async (b) => {
@@ -94,6 +83,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
   return (
     <Screen t={t} title="Timetable">
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        {pushError && <p role="alert">{pushError}</p>}
         {/* View Switcher: Day vs Week */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <div style={{ width: 220 }}>

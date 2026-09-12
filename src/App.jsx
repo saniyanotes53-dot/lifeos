@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Home, ListChecks, Moon, Wallet, BarChart3, Clock, User, LogOut, Sparkles, Sun, Settings,
-  ChevronRight, Headphones, Search, DollarSign, Award, Zap
+  ChevronRight, Headphones, Search, DollarSign, Award, Zap, MessageCircle
 } from "lucide-react";
 import { useLocalDay } from "./useLocalDay";
 import { useT, PALETTES } from "./theme";
@@ -21,10 +21,14 @@ import UserGuideModal from "./components/UserGuideModal";
 import CommandPalette from "./components/CommandPalette";
 import WealthSimulatorModal from "./components/WealthSimulatorModal";
 import { ToastProvider } from "./components/Toast";
+import AssistantScreen from "./components/AssistantScreen";
+import { disablePush, onForegroundPush } from "./notifications";
 import CopyrightFooter from "./components/CopyrightFooter";
 
 export default function App() {
   useLocalDay();
+  const [pushNotice, setPushNotice] = useState("");
+  useEffect(() => onForegroundPush(payload => setPushNotice(payload.data?.body || payload.notification?.body || "You have a new reminder.")), []);
   const [healthView, setHealthView] = useState("goals");
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
   const [scheme, setScheme] = useState(() => localStorage.getItem("lifeos_scheme") || "blue");
@@ -32,7 +36,7 @@ export default function App() {
   const t = useT(theme, scheme);
 
   const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
-  const [tab, setTab] = useState("home"); // home, tasks, focus, health, budget, timetable, reports, profile
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("view") === "timetable" ? "timetable" : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
   const [showGuideModal, setShowGuideModal] = useState(false);
 
   // Pro feature modal states
@@ -114,6 +118,7 @@ export default function App() {
   }, [user]);
 
   const handleLogout = async () => {
+    await disablePush(user).catch(() => {});
     await logout();
     setTasks([]); setSleep([]); setWorkouts([]); setMeals([]);
     setTx([]); setBlocks([]); setWallets([]); setCategoryBudgets([]); setLoans([]); setBodyMetrics([]);
@@ -126,6 +131,7 @@ export default function App() {
   const NAV = [
     ["home", Home, "Home"],
     ["tasks", ListChecks, "Tasks"],
+    ["assistant", MessageCircle, "Assistant"],
     ["focus", Headphones, "Focus Studio", "PRO"],
     ["timetable", Clock, "Timetable"],
     ["health", Moon, "Health"],
@@ -455,6 +461,8 @@ export default function App() {
 
           {/* Scrollable View Content */}
           <main className="main-content" style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+            {pushNotice && <div role="status" style={{padding:12,background:t.surface2}}>{pushNotice} <button className="link-button" onClick={() => { setPushNotice(""); setTab("timetable"); }}>View timetable</button><button className="link-button" onClick={() => setPushNotice("")}>Dismiss</button></div>}
+            {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} tasks={tasks} blocks={blocks} sleep={sleep} tx={tx} workouts={workouts} setTab={setTab} />}
             {tab === "home" && (
               <Dashboard
                 t={t}
@@ -503,6 +511,7 @@ export default function App() {
                 t={t}
                 blocks={blocks}
                 tasks={tasks}
+                user={user}
                 userId={user.uid}
               />
             )}
@@ -563,6 +572,7 @@ export default function App() {
             {[
               ["home", Home, "Home"],
               ["tasks", ListChecks, "Tasks"],
+    ["assistant", MessageCircle, "Assistant"],
               ["focus", Headphones, "Focus"],
               ["timetable", Clock, "Time"],
               ["health", Moon, "Health"],

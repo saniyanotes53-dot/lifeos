@@ -27,3 +27,7 @@ Open `/tests/preview.html` on the displayed local URL. Select 320, 375, 768, or 
 Six automated tests and the production build passed. The production bundle still produces Vite's large-chunk advisory. Browser visual verification could not be completed because this environment's browser could not connect to the local preview. Review the preview at mobile and desktop widths, including dialogs and print layout, before merging. Live Firebase writes and sign-in were not exercised for this change.
 
 GitHub branch creation was rejected with HTTP 403, "Resource not accessible by integration". These changes have not been pushed or deployed.
+
+## Assistant additions
+
+The combined suite now has 16 passing tests. See `docs/ASSISTANT_SETUP.md` for Tencent, AI, schedule-apply, and push setup and staging checks. The isolated fixture does not provide server API credentials; writes through the new server endpoints are intentionally unavailable there.
