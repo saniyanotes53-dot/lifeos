@@ -1,45 +1,60 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  signOut,
-  updateProfile,
-} from "firebase/auth";
-import { auth } from "./firebase";
-
-const googleProvider = new GoogleAuthProvider();
+import { supabase } from "./supabase";
 
 export async function registerWithEmail(name, email, password) {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  if (name) await updateProfile(cred.user, { displayName: name });
-  return cred.user;
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: name } },
+  });
+  if (error) throw error;
+  return data.user;
 }
 
 export async function loginWithEmail(email, password) {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  return cred.user;
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data.user;
 }
 
 export async function loginWithGoogle() {
-  const cred = await signInWithPopup(auth, googleProvider);
-  return cred.user;
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
+  return data.user;
 }
 
 export async function resetPassword(email) {
-  const actionCodeSettings = {
-    url: window.location.origin + "/#/login",
-    handleCodeInApp: false,
-  };
-  await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + "/#/login",
+  });
+  if (error) throw error;
+}
+
+export async function updateUserPassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
 }
 
 export async function logout() {
-  await signOut(auth);
+  await supabase.auth.signOut();
 }
 
 export function onAuthChange(callback) {
-  return onAuthStateChanged(auth, callback);
+  const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const sbUser = session?.user;
+    if (!sbUser) { callback(null); return; }
+    callback({
+      uid: sbUser.id,
+      email: sbUser.email,
+      displayName: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split("@")[0] || "User",
+    });
+  });
+  return () => subscription.unsubscribe();
+}
+
+export async function getCurrentSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
 }

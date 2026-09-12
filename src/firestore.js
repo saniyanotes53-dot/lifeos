@@ -1,56 +1,105 @@
-import {
-  collection, doc, addDoc, updateDoc, deleteDoc, setDoc,
-  onSnapshot, query, orderBy,
-} from "firebase/firestore";
-import { db } from "./firebase";
+import { supabase, tableName } from "./supabase";
 import { parseLocalDate } from "./utils/dates";
 
-const col = (uid, name) => collection(db, "users", uid, name);
-
 export function watchCollection(uid, name, onChange, orderField = null) {
-  const collectionRef = col(uid, name);
-  const q = orderField ? query(collectionRef, orderBy(orderField, "desc")) : collectionRef;
-  let fallbackUnsub = null;
-  const unsub = onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  }, (err) => {
-    console.warn(`Query with orderBy('${orderField}') on ${name} encountered an error:`, err);
-    if (orderField && !fallbackUnsub) {
-      fallbackUnsub = onSnapshot(collectionRef, (fallbackSnap) => {
-        onChange(fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      });
+  const table = tableName(name);
+  let active = true;
+
+  async function fetchInitial() {
+    let query = supabase.from(table).select("*").eq("user_id", uid);
+    if (orderField) query = query.order(orderField, { ascending: false });
+    const { data, error } = await query;
+    if (error) {
+      const { data: fallback } = await supabase.from(table).select("*").eq("user_id", uid);
+      if (active && fallback) onChange(fallback);
+    } else if (active && data) {
+      onChange(data);
     }
-  });
-  return () => { unsub(); if (fallbackUnsub) fallbackUnsub(); };
+  }
+
+  fetchInitial();
+
+  const channel = supabase
+    .channel(`public:${table}:user_id=eq.${uid}`)
+    .on("postgres_changes", { event: "*", schema: "public", table, filter: `user_id=eq.${uid}` }, () => {
+      fetchInitial();
+    })
+    .subscribe();
+
+  return () => {
+    active = false;
+    supabase.removeChannel(channel);
+  };
 }
 
 export async function ensureUserProfile(user) {
-  return setDoc(doc(db, "users", user.uid), {
+  if (!user?.uid) return;
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.uid,
     email: user.email || null,
-    displayName: user.displayName || user.email?.split("@")[0] || "User",
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
+    display_name: user.displayName || user.email?.split("@")[0] || "User",
+  }, { onConflict: "id" });
+  if (error) throw error;
 }
 
 export async function addItem(uid, name, data) {
+  const table = tableName(name);
+  let payload = { ...data, user_id: uid };
+
   if (name === "timetable" && parseLocalDate(data.date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(data.time || "")) {
     const when = parseLocalDate(data.date);
     const [h, m] = data.time.split(":").map(Number);
     when.setHours(h, m, 0, 0);
-    data = { ...data, remindAt: when.getTime() };
+    payload = { ...payload, remind_at: when.getTime() };
   }
-  return addDoc(col(uid, name), data);
+
+  const { data: inserted, error } = await supabase.from(table).insert(payload).select().single();
+  if (error) throw error;
+  return inserted;
 }
 
 export async function updateItem(uid, name, id, patch) {
-  return updateDoc(doc(db, "users", uid, name, id), patch);
+  const table = tableName(name);
+  const { data, error } = await supabase.from(table).update(patch).eq("id", id).eq("user_id", uid).select().single();
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteItem(uid, name, id) {
-  return deleteDoc(doc(db, "users", uid, name, id));
+  const table = tableName(name);
+  const { error } = await supabase.from(table).delete().eq("id", id).eq("user_id", uid);
+  if (error) throw error;
 }
 
-// A wake-up date identifies a single night's sleep; repeat saves update it.
 export async function saveSleep(uid, date, data) {
-  return setDoc(doc(db, "users", uid, "sleep", date), { ...data, date });
+  const { data: existing } = await supabase
+    .from("sleep_records")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("date", date)
+    .maybeSingle();
+
+  if (existing) {
+    return updateItem(uid, "sleep", existing.id, { ...data, date });
+  }
+  return addItem(uid, "sleep", { ...data, date });
+}
+
+export async function updateProfile(uid, patch) {
+  const { error } = await supabase.from("profiles").update(patch).eq("id", uid);
+  if (error) throw error;
+}
+
+export async function savePushToken(uid, token) {
+  const { data: existing } = await supabase
+    .from("push_tokens")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase.from("push_tokens").insert({ user_id: uid, token });
+    if (error) throw error;
+  }
 }
