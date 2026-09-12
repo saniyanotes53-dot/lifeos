@@ -43,9 +43,9 @@ variables are no longer used by the assistant. They can be removed from Vercel.
   Completed blocks/tasks are skipped. Sleeping/closed devices do not receive
   background push. The preference is per user and browser; logout disables it.
 
-The Firebase Admin package is used only to validate token signatures with
-Google's public certificates and the configured project ID. It does not use
-an admin credential or bypass Firestore rules. Revocation/account-disabled
+The small `jose` library validates Firebase token signatures with Google's
+public keys, checking the project, issuer, expiry and authentication time.
+No Firebase Admin package, admin credential or Firestore rules bypass is used. Revocation/account-disabled
 lookups are not performed; an already issued token can remain valid until its
 normal expiry (typically one hour).
 
@@ -82,3 +82,10 @@ Primary references:
 - https://firebase.google.com/docs/firestore/use-rest-api
 - https://ai.google.dev/gemini-api/docs/pricing
 - https://vercel.com/docs/environment-variables/managing-environment-variables
+
+## Recovery on 2026-09-12
+
+Restored the Firebase application from before the Supabase migration in commit
+`3bd0410`. The pre-recovery repository is retained in branch
+`backup/before-firebase-recovery`. This restores source code only; no Firebase
+or Supabase database was deleted or modified during recovery.

@@ -8,5 +8,11 @@
       "src": "/.*",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "includeFiles": "{server/**,src/assistant/planner.js,src/utils/**}",
+      "maxDuration": 60
+    }
+  }
 }

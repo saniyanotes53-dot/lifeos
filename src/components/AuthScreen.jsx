@@ -14,13 +14,39 @@ export default function AuthScreen({ t, onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const formatAuthError = (e) => {
-    const msg = e?.message || "";
-    if (msg.includes("Invalid login credentials")) return "Invalid email or password. If you haven't registered yet, tap 'Create an account'.";
-    if (msg.includes("User already registered")) return "This email is already registered. Please log in instead.";
-    if (msg.includes("Password should be at least")) return "Password must be at least 6 characters long.";
-    if (msg.includes("Unable to validate email address")) return "Please enter a valid email address.";
-    if (msg.includes("Email not confirmed")) return "Check your inbox for a confirmation email before logging in.";
-    return msg || "Sign-in could not be completed. Please try again.";
+    const code = e?.code || "";
+    switch (code) {
+      case "auth/configuration-not-found":
+        return "Email/Password provider is not enabled in Firebase Console. Go to Firebase Console → Authentication → Sign-in method, click 'Email/Password' and enable it.";
+      case "auth/operation-not-allowed":
+        return "Sign-in method is not enabled in Firebase Console. Go to Authentication → Sign-in method to enable it.";
+      case "auth/user-not-found":
+        return "No account found with this email. Click 'Create an account' below to sign up.";
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        return "Invalid email or password. If you haven't registered yet, tap 'Create an account'.";
+      case "auth/email-already-in-use":
+        return "This email is already registered. Please log in instead.";
+      case "auth/weak-password":
+        return "Password must be at least 6 characters long.";
+      case "auth/invalid-email":
+        return "Please enter a valid email address.";
+      case "auth/popup-closed-by-user":
+        return "Google sign-in popup was closed before completion.";
+      case "auth/unauthorized-domain": {
+        const hostname = typeof window !== "undefined" ? window.location.hostname : "this website";
+        return `Firebase is blocking sign-in from ${hostname}. Add this domain in Firebase Console → Authentication → Settings → Authorized domains, then reload the website.`;
+      }
+      case "auth/missing-android-pkg-name":
+      case "auth/missing-ios-bundle-id":
+        return "Firebase action code settings are incomplete. Check Firebase Console → Authentication → Templates → Password reset.";
+      case "auth/invalid-action-code":
+        return "The action code is invalid. Request a new password reset link.";
+      case "auth/expired-action-code":
+        return "The password reset link has expired. Request a new one.";
+      default:
+        return e.message || "Sign-in could not be completed. Check your Firebase Authentication settings and try again.";
+    }
   };
 
   const submit = async (event) => {

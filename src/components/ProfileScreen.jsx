@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
 import { PALETTES, inputStyle } from "../theme";
 import { Card, Screen, PrimaryButton, GhostButton, SectionLabel } from "./primitives";
-import { resetPassword, updateUserPassword } from "../auth";
+import { resetPassword } from "../auth";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { auth } from "../firebase";
 
 export default function ProfileScreen({ t, user, theme, setTheme, scheme, setScheme, onLogout, onOpenGuide }) {
   const [newPassword, setNewPassword] = useState("");
@@ -36,12 +38,24 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
 
     try {
       setPwLoading(true);
-      await updateUserPassword(newPassword);
-      setPwMsg("Password updated successfully!");
-      setNewPassword("");
-      setCurrentPassword("");
+      if (currentPassword) {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        await updatePassword(auth.currentUser, newPassword);
+        setPwMsg("Password updated successfully!");
+        setNewPassword("");
+        setCurrentPassword("");
+      } else {
+        // Fallback: send password reset email
+        await resetPassword(user.email);
+        setPwMsg(`A password reset link was sent to ${user.email}.`);
+      }
     } catch (e) {
-      setPwMsg(e.message || "Failed to update password. Try sending a reset link instead.");
+      if (e.code === "auth/requires-recent-login") {
+        setPwMsg("Please enter your current password to verify your identity.");
+      } else {
+        setPwMsg(e.message || "Failed to update password.");
+      }
     } finally {
       setPwLoading(false);
     }

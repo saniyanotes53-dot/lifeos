@@ -5,6 +5,7 @@ const limit=createLimiter();
 export function createHandler(authenticate=requireUser,replyTo=generateReply,throttle=limit){
   return async function handler(req,res){
     res.setHeader('Cache-Control','no-store');
+    if(req.method==='GET')return res.json({service:'lifeos-assistant',configured:Boolean(process.env.GEMINI_API_KEY),model:process.env.GEMINI_MODEL||'gemini-2.5-flash-lite'});
     if(req.method!=='POST')return res.status(405).end();
     try{
       const user=await authenticate(req),text=req.body?.text,history=req.body?.history||[];

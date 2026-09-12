@@ -7,7 +7,6 @@ import { useLocalDay } from "./useLocalDay";
 import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
 import { ensureUserProfile, watchCollection, updateItem } from "./firestore";
-import { supabase } from "./supabase";
 
 import AuthScreen from "./components/AuthScreen";
 import Dashboard from "./components/Dashboard";
@@ -60,8 +59,8 @@ export default function App() {
   useEffect(() => { setPushNotice(""); }, [user?.uid]);
 
   // Auth persistence listener
-  useEffect(() => onAuthChange((sbUser) => {
-    setUser(sbUser || null);
+  useEffect(() => onAuthChange((firebaseUser) => {
+    setUser(firebaseUser || null);
   }), []);
 
   // Global Keyboard Shortcuts (Ctrl+K or Cmd+K for Spotlight)
