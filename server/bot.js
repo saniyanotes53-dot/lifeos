@@ -1,5 +1,6 @@
+import {geminiModel} from './model.js';
 export async function generateReply(text,history=[],request=fetch){
-  const key=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash-lite';
+  const key=process.env.GEMINI_API_KEY,model=geminiModel();
   if(!key||!model)throw Object.assign(new Error('The AI bot is not configured yet. Use the built-in planner.'),{status:503});
   const response=await request(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},signal:AbortSignal.timeout(20000),
