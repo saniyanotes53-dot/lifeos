@@ -1,3 +1,5 @@
+import EmailReminderToggle from './EmailReminderToggle';
+import {validEmail} from '../assistant/budget-tools';
 import EventBudget from './EventBudget';
 import {normalizeTag} from '../assistant/event-tags';
 import BudgetTools from './BudgetTools';
@@ -59,6 +61,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
   // Borrow/Lend State
   const [showAddLoan, setShowAddLoan] = useState(false);
+  const [loanEmail,setLoanEmail]=useState(''),[loanError,setLoanError]=useState(''),[loanBusy,setLoanBusy]=useState(false);
   const [loanPerson, setLoanPerson] = useState("");
   const [loanAmount, setLoanAmount] = useState("");
   const [loanType, setLoanType] = useState("lend"); // "lend" (owed to me) or "borrow" (I owe)
@@ -137,9 +140,14 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
   };
 
   const handleAddLoan = async () => {
-    if (!loanPerson.trim() || !loanAmount) return;
+    if(loanBusy)return;
+    setLoanError('');
+    if(!loanPerson.trim()||!Number.isFinite(Number(loanAmount))||Number(loanAmount)<=0){setLoanError('Enter a name and positive amount.');return;}
+    if(loanEmail&&!validEmail(loanEmail)){setLoanError('Check the email address.');return;}
+    setLoanBusy(true);try{
     await addItem(userId, "loans", {
       person: loanPerson.trim(),
+      email: loanEmail.trim(),
       amount: Number(loanAmount),
       type: loanType,
       dueDate: loanDueDate || todayStr(),
@@ -148,7 +156,8 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
     });
     setLoanPerson("");
     setLoanAmount("");
-    setShowAddLoan(false);
+    setShowAddLoan(false);setLoanEmail('');
+    }catch(e){setLoanError(e.message);}finally{setLoanBusy(false);}
   };
 
   // AI / Statement Parser (supports text statements or uploaded CSV)
@@ -626,7 +635,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               </PrimaryButton>
             </div>
 
-            {loans.length === 0 ? (
+            {loanError&&<p role="alert">{loanError}</p>}{loans.length === 0 ? (
               <Empty t={t} text="No debt or credit records found. Add one to track money lent or borrowed." />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -635,14 +644,14 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{ln.person}</div>
                       <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>
-                        {ln.type === "lend" ? "Owed to you" : "You owe"} · Due: {ln.dueDate || "N/A"}
+                        {ln.type === "lend" ? "Owed to you" : "You owe"} · Due: {ln.dueDate || "N/A"}<p>{ln.email}</p><EmailReminderToggle userId={userId} collection="loans" record={ln}/>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                       <div style={{ fontSize: 15, fontWeight: 800, color: ln.type === "lend" ? t.good : t.warm }}>
-                        {ln.type === "lend" ? "+" : "-"}₹{Number(ln.amount || 0).toLocaleString()}
+                        {ln.settled?"Paid":`${ln.type === "lend" ? "+" : "-"}₹${Number(ln.amount || 0).toLocaleString()}`}
                       </div>
-                      <IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "loans", ln.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
+                      <button onClick={async()=>{try{await updateItem(userId,"loans",ln.id,{settled:!ln.settled});}catch(e){setLoanError(e.message);}}}>{ln.settled?"Reopen":"Mark paid"}</button><IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "loans", ln.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
                     </div>
                   </Card>
                 ))}
@@ -900,7 +909,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 value={loanDueDate}
                 onChange={e => setLoanDueDate(e.target.value)}
               />
-              <PrimaryButton t={t} onClick={handleAddLoan}>Save Record</PrimaryButton>
+              <input aria-label="Contact email" type="email" placeholder="Contact email (optional)" value={loanEmail} onChange={e=>setLoanEmail(e.target.value)} style={inputStyle(t)}/>{loanError&&<p role="alert">{loanError}</p>}<PrimaryButton t={t} disabled={loanBusy} onClick={handleAddLoan}>Save Record</PrimaryButton>
             </Card>
           </Modal>
         )}

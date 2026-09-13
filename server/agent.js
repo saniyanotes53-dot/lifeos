@@ -1,3 +1,4 @@
+import {transactionDefaults} from '../src/assistant/transaction-defaults.js';
 import {dateContext} from '../src/assistant/date-context.js';
 import {readGeminiStream} from './gemini-stream.js';
 import {geminiModel} from './model.js';
@@ -17,6 +18,7 @@ Supported actions: create_task(title,priority High/Med/Low,done false), update_t
   // Bind update previews to the exact records shown to the model. The apply
   // transaction rejects changes if those fields have changed since this read.
   for(const a of result.actions||[]){
+    Object.assign(a,transactionDefaults(a,context,text));
     if(a.type==='create_task'){a.priority??='Med';a.done??=false;}
     if(['schedule_task','move_block'].includes(a.type)){a.date??=context.interpretedRequest?.date;a.time??=context.interpretedRequest?.time;a.durationMinutes??=context.interpretedRequest?.durationMinutes||30;}
     const collection=['update_task','delete_task'].includes(a.type)?'tasks':['move_block','delete_block'].includes(a.type)?'blocks':['tag_transaction','delete_transaction'].includes(a.type)?'transactions':['set_budget','delete_budget'].includes(a.type)?'categoryBudgets':null;

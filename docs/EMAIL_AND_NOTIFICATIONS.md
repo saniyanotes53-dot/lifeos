@@ -62,3 +62,21 @@ Open `/reset`, request one email for your own registered address, then inspect
 Inbox/Spam. If testing a configured custom handler, opening its link should show
 the branded reset screen; stop before changing the password unless you intend to
 change it. Never paste reset codes or passwords into issue reports or logs.
+
+## Daily loan and split-bill emails
+
+The `/api/reminder-emails` Vercel cron runs daily at 08:00 UTC. It is disabled until ALL of these production variables are configured:
+
+- `RESEND_API_KEY`: secret, from Resend.
+- `EMAIL_FROM`: verified sender, e.g. `Life OS <reminders@your-domain.com>` (use a real domain you control).
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: secret JSON for **lifeos-61443**, with Firestore read access. Never add this to a VITE variable or source control.
+- `CRON_SECRET`: long random secret for authenticating the cron request.
+- `REMINDER_EMAILS_ENABLED`: `true` only after verifying the sender and a test recipient.
+
+Status is available at `/api/reminder-emails?status=1`; it shows configuration presence, not a delivery guarantee. Each loan/bill also needs the owner to enable its reminder checkbox. Emails are sent individually, contain the recipient's balance, and stop when the owner marks the record paid or disables reminders. Loan email is the contact's email (borrower for money lent; lender for money borrowed). Split bills send each participant their share and relevant dues. No payments are collected.
+
+Initial bounded capacity: 1,000 records per collection and 20 recipient emails per daily run. Exceeding capacity stops the run with a logged error; add pagination/queueing before increasing it. Provider idempotency keys prevent duplicate sends on retries within its 24-hour window. Check Resend delivery/bounce logs: an accepted API request does not guarantee inbox delivery. A verified sender and recipient contact workflow are required before enabling production sending.
+
+### Password reset still missing
+
+Password resets use Firebase Authentication's own sender, independently of these reminder variables. Inspect Authentication → Users to verify the exact address and enabled email/password provider, then Authentication → Templates → Password reset. Use the console's reset-password action for that known account to distinguish app requests from provider delivery. Review spam/quota restrictions and the exact browser Firebase error code. Custom action URLs must retain Firebase's one-time query parameters. The code cannot repair sender/template settings without console administration access. Do not loosen Firestore rules to troubleshoot Authentication email.

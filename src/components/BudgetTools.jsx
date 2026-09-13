@@ -1,3 +1,4 @@
+import SplitBills from './SplitBills';
 import React,{useState,useRef} from 'react';
 import {Card,Field,PrimaryButton,GhostButton} from './primitives';
 import {inputStyle,todayStr} from '../theme';
@@ -15,6 +16,7 @@ export default function BudgetTools({t,userId,mode,subscriptions=[],billSplits=[
   else{const result=splitBill(amount,people);if(!result.some(x=>x.name===paidBy.trim()))throw new Error('The payer must be one of the participant names.');await addItem(userId,'billSplits',{title:name.trim(),total:Math.round(Number(amount)*100)/100,people:result.map(x=>x.name).join(', '),paidBy:paidBy.trim(),date:todayStr(),settled:false});}
   setName('');setAmount('');setPeople('');setPaidBy('');
  });}
+ if(!isSub)return <SplitBills t={t} userId={userId} billSplits={billSplits}/>;
  return <div style={{display:'grid',gap:12}}><Card t={t}><h2>{isSub?'Recurring subscriptions':'Split a bill'}</h2><p style={{color:t.muted,fontSize:13}}>{isSub?'Keep a record of renewals and recurring costs. This tracker does not charge your account or create payments automatically.':'Calculate equal shares and keep a settlement record. Friends are not contacted and no money is transferred.'}</p>
  <form onSubmit={save}><Field t={t} label={isSub?'Subscription name':'Bill title'}><input required maxLength={200} value={name} onChange={e=>setName(e.target.value)} style={inputStyle(t)}/></Field><Field t={t} label={isSub?'Recurring amount (₹)':'Total paid (₹)'}><input required type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} style={inputStyle(t)}/></Field>
  {isSub?<><Field t={t} label="Renewal cycle"><select value={cycle} onChange={e=>setCycle(e.target.value)} style={inputStyle(t)}>{['weekly','monthly','yearly'].map(c=><option key={c}>{c}</option>)}</select></Field><Field t={t} label="Next renewal date"><input type="date" required value={date} onChange={e=>setDate(e.target.value)} style={inputStyle(t)}/></Field></>:<><Field t={t} label="Participants, separated by commas"><input required value={people} onChange={e=>setPeople(e.target.value)} placeholder="Me, Ali, Ahmed" style={inputStyle(t)}/></Field><Field t={t} label="Who paid? Enter one participant’s name"><input required value={paidBy} onChange={e=>setPaidBy(e.target.value)} style={inputStyle(t)}/></Field>{shares.length>0&&<ul>{shares.map(s=><li key={s.name}>{s.name}: ₹{s.amount.toFixed(2)}</li>)}</ul>}</>}

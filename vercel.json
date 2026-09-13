@@ -14,5 +14,11 @@
       "includeFiles": "{server/**,src/assistant/**,src/utils/**}",
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/reminder-emails",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }
