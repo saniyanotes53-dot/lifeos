@@ -1,89 +1,87 @@
-# Life OS active assistant
+# Life OS assistant setup
 
-## What users can do
+No additional API keys, paid Firebase plan or messaging SDK is needed. Keep
+`GEMINI_API_KEY` (Production secret) and `GEMINI_MODEL` (Production config) in
+Vercel. The default model is `gemini-3.1-flash-lite`. The app continues to use
+Firebase project `lifeos-61443`; the Gemini key stays on the server.
 
-Open Assistant or the message icon in the header of any screen. Describe a
-change in natural language, review the proposed actions, then press **Confirm
-changes**. A new message replaces an unconfirmed proposal. Typing “yes” keeps
-the review visible and directs the user to the confirmation button.
+## Actions and event tags
 
-Supported changes:
-- Add tasks, edit their titles/priorities, and mark them complete or open.
-- Schedule existing tasks or newly proposed tasks in the same confirmation.
-- Move existing timetable blocks after reviewing their original and new times.
-- Create or update monthly category budget limits.
+The shared assistant can create/edit/complete/delete tasks, schedule tasks,
+move/remove timetable blocks, set monthly category limits, log income/expenses,
+and tag existing transactions. Deleting a task also removes its linked blocks;
+removing a block keeps the task. Destructive changes appear in the preview.
+Confirm changes or type “yes” while a proposal is visible to save. A request to
+revise it sends the previous unconfirmed proposal back to Gemini. No provider
+reply executes database changes automatically.
 
-The assistant can also explain selected records, help decide whether a purchase
-fits recorded cash flow, and analyze spending. It cannot execute payments,
-contact friends, access live bank balances, or send background push notifications.
+Budget → Event tags groups entries under names such as `#summer-vacation`.
+Add a tag when creating a transaction, or assign/edit/remove it on existing
+entries. Event totals span all months. Tags normalize case and spaces to dashes.
+Gemini receives tags and aggregate event totals when budget sharing is enabled.
+Wallet balances are manual records, not automatically adjusted bank balances.
+Subscriptions and bill splits remain record trackers, not payment services.
 
-Budget now includes **Purchase Advisor**, **Subscriptions** and **Bill splits**.
-The latter two are record-keeping tools: subscriptions store renewal dates and
-costs; bill splits calculate exact equal shares and track settlement. They do not
-automatically debit accounts or create transactions. The local planner and weekly
-summary remain available without a Gemini request in the Assistant screen.
+## Saving repair
 
-## Existing Vercel setup
+Production logs showed `/api/assistant` returning replies while
+`/api/assistant-apply` returned 403. The refreshed frontend saves through the
+Firebase Web SDK and the same signed-in connection as the normal app controls.
+It does not use the failing server REST transaction path. The older REST routes
+remain for compatibility/diagnostics; refresh stale pages to load the new flow.
 
-No new keys are needed. Use the repository root, Vite, `npm run build`, and `dist`.
-Keep `GEMINI_API_KEY` as a Production secret and `GEMINI_MODEL` as Production
-config. The default is `gemini-3.1-flash-lite`; whitespace and accidental trailing
-full stops in the model value are removed. Optional `FIREBASE_PROJECT_ID`
-defaults to the existing `lifeos-61443` Firebase project. No Tencent, Supabase,
-Firebase Admin service-account key, Blaze upgrade or cron setup is required.
+A transaction reads the user's profile revision, loads only needed collections,
+validates original fields and timetable occupancy, and commits all changes plus
+a receipt. Normal CRUD helpers also increment that profile revision, allowing
+concurrent current-version app edits to trigger transaction retries. No Firestore
+rules are weakened: the existing owner-only rules in `firestore.rules` still
+apply to both profile and nested documents. If manual writes also fail, the
+actual Firebase rules/account access must be checked separately.
 
-## Privacy and confirmation
+Confirmation receipts keep the latest 100 IDs; proposals expire after 24 hours.
+Deterministic creation IDs and receipts prevent duplicate saves on normal retries.
+Limits: 20 actions, 1,000 records per read collection, 450 changed records.
+Changes preserve unrelated record fields; stale edits, invalid amounts, past
+schedules, overlaps and duplicate targets are rejected before any writes.
 
-The sharing controls let users include tasks/timetable, budget, and/or health
-records. Selected records plus recent conversation messages go to Gemini.
-Tasks/timetable are included by default; budget is included when opening from
-Budget; health requires selection. Changing sharing controls clears the context
-history sent with subsequent messages. Visible chat history stays in memory for
-the current panel session.
+## Conversation and speed
 
-At most 150 records per included collection and 30 health records are shared;
-transaction details cover the current month. Aggregate recorded income/expense
-totals cover all current-month records, even when detail rows are truncated.
-The model is explicitly told about incomplete data and cannot directly execute
-operations. All returned action fields are validated against an allowlist.
+Replies stream from Gemini through `/api/assistant` as NDJSON, so text appears
+before the full structured proposal is ready. Only the final validated proposal
+can be confirmed. Interrupted streams never save anything. Safe defaults for
+new tasks avoid failing on omitted priority/completion fields. Logs record status,
+action count and duration, without message bodies or tokens.
 
-`POST /api/assistant` produces proposals. `POST /api/assistant-apply` saves only
-when the frontend confirmation button is pressed. Both require Firebase ID-token
-signature and claim verification using Google's public keys via `jose`.
-Firestore requests carry that user's token; the existing ownership rules in
-`firestore.rules` continue to apply, including to the new `subscriptions`,
-`billSplits` and `assistantApplied` user subcollections.
+Recent chat (80 displayed messages), up to 40 context messages and an editable
+3,000-character summary are stored per account on this device. All assistant
+panels share that conversation and pending proposal. Memory does not sync across
+devices. Use Memory & shared records → Clear chat & memory to erase it. Sharing
+changes clear outgoing history, summary and pending actions.
 
-## Save safeguards and limits
+Selected records, messages and memory go to Google Gemini. Tasks/timetable are
+selected by default, budget when opening from Budget, health only by selection.
+Context favors open tasks (up to 400), future blocks (300), recent transactions
+across months (200), other records (200), and health rows (30). Context is bounded
+to fit requests; full monthly/event aggregates remain available where enabled.
+The model is told about truncation and to use actual records instead of invented
+facts. The local canned summary/planner has been removed from the chat screen;
+existing manual timetable controls and dashboard summaries remain independent.
 
-A Firestore transaction re-reads tasks, timetable and budgets, compares original
-fields for edits, rejects completed-task/past-time/overlapping schedules, and
-writes all changes together with an idempotency receipt. Retrying the same
-confirmation does not duplicate records. Task completion also updates linked
-blocks. Patch masks preserve unrelated existing fields. Timetable timestamps
-use the browser's timezone offset for each target date, including DST changes.
+## Verification
 
-Up to 20 actions are accepted per proposal, 1,000 records per queried collection,
-and 450 resulting changed records. A conflict requires a fresh proposal. The
-best-effort per-instance request throttle is not a distributed quota or billing
-cap. Gemini, Firestore and Vercel free-tier quotas still apply. ID-token revocation
-lookups are not performed; already-issued tokens can remain valid until expiry.
+Run `npm test` and `npm run build`. Tests mock the provider/database and cover
+atomic saves, failed permissions without partial writes, retry receipts, stale
+updates/deletes, linked-block deletion, schedule conflicts, event totals,
+transaction tagging, session isolation and split-chunk streaming.
 
-## Verification and smoke test
+Live signed-in smoke checks:
+1. “Add a revision task for tomorrow at 7 pm for 30 minutes.” Confirm; check Tasks
+   and Time. Retry the same confirmation if the network is interrupted.
+2. “Delete that revision task.” Review the named task and linked blocks; confirm.
+3. “Log ₹500 for travel under #summer-vacation.” Confirm; check Budget → Event tags.
+4. Change a tag on an older entry and verify the event total.
+5. Navigate between screens or refresh; the conversation should remain.
 
-Automated tests cover action validation, create-and-schedule linkage, atomic
-receipts/retries, stale updates, timetable conflicts/swaps, budget limits, Firebase
-signatures/claims, exact-paisa bill splits, local reminders and prior analytics.
-The production build is checked. Provider calls and Firestore writes in tests
-are mocked. Browser access to the local test page was blocked by the environment.
-
-After deployment, sign in and try:
-1. “Add a high-priority revision task and schedule it tomorrow at 7 pm for 30 minutes.”
-2. Review and confirm; verify both Tasks and Timetable.
-3. “Move that revision block to 8 pm tomorrow.” Review and confirm.
-4. In Budget, Ask Gemini to analyze spending and propose a Food budget.
-5. Confirm a budget change, then check Budgets. Save a subscription and a bill
-   split using their new tabs.
-
-The previous recovery retained the Firebase app and preserved the pre-recovery
-migration on `backup/before-firebase-recovery`. No database was deleted.
+Browser access to the local preview is blocked in the agent environment. This
+means automated local tests do not prove real signed-in permissions or provider
+latency. Deployment checks and the above account test are separate gates.

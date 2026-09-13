@@ -1,3 +1,5 @@
+import EventBudget from './EventBudget';
+import {normalizeTag} from '../assistant/event-tags';
 import BudgetTools from './BudgetTools';
 import { IconBtn } from "./primitives";
 import { Modal } from "./primitives";
@@ -28,6 +30,10 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Food");
   const [note, setNote] = useState("");
+  const [eventTag,setEventTag]=useState("");
+  const [txDate,setTxDate]=useState(todayStr());
+  const [txError,setTxError]=useState("");
+  const [txBusy,setTxBusy]=useState(false);
   const [type, setType] = useState("expense");
   const [selectedWallet, setSelectedWallet] = useState("");
 
@@ -86,9 +92,14 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
 
   // Handlers
   const handleAddTx = async () => {
-    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) return;
+    if(txBusy)return;
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0 || !parseLocalDate(txDate)) {setTxError("Enter a positive amount and a valid date.");return;}
+    setTxBusy(true);setTxError("");
+    try{
+    const tag=normalizeTag(eventTag);
     await addItem(userId, "transactions", {
-      date: todayStr(),
+      date: txDate,
+      eventTag:tag,
       amount: Number(amount),
       category: type === "income" ? "Income" : category,
       note: note.trim(),
@@ -97,7 +108,8 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
     });
     setAmount("");
     setNote("");
-    setShowAddTx(false);
+    setShowAddTx(false);setEventTag("");
+    }catch(e){setTxError(e.message);}finally{setTxBusy(false);}
   };
 
   const handleAddWallet = async () => {
@@ -223,6 +235,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
             {[
               ["overview", "Overview"],
               ["transactions", "Transactions"],
+              ["events", "Event tags"],
               ["wallets", "Wallets"],
               ["budgets", "Budgets"],
               ["borrowLend", "Borrow / Lend"], ["subscriptions", "Subscriptions"], ["splits", "Bill splits"]
@@ -495,6 +508,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
         )}
 
         {/* ================= TRANSACTIONS FULL VIEW ================= */}
+        {subView === "events" && <EventBudget t={t} tx={tx} userId={userId} onAskAssistant={onAskAssistant}/>}
         {subView === "transactions" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -510,7 +524,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{x.note || x.category}</div>
                   <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>
-                    {x.category} · {x.date} · Wallet: {x.wallet || "Bank"}
+                    {x.category} · {x.date} · Wallet: {x.wallet || "Bank"} {x.eventTag?`· #${x.eventTag}`:""}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -710,7 +724,11 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 onChange={e => setNote(e.target.value)}
               />
 
-              <PrimaryButton t={t} onClick={handleAddTx}>Save Transaction</PrimaryButton>
+              <label style={{display:'block',marginBottom:10}}>Date<input aria-label="Transaction date" type="date" value={txDate} onChange={e=>setTxDate(e.target.value)} style={inputStyle(t)}/></label>
+              <label style={{display:'block',marginBottom:10}}>Event tag (optional)<input aria-label="Transaction event tag" placeholder="#summer-vacation" maxLength={60} value={eventTag} onChange={e=>setEventTag(e.target.value)} style={inputStyle(t)} list="transaction-event-tags"/></label>
+              <datalist id="transaction-event-tags">{[...new Set(tx.map(x=>x.eventTag).filter(Boolean))].map(tag=><option key={tag} value={tag}/>)}</datalist>
+              {txError&&<p role="alert">{txError}</p>}
+              <PrimaryButton t={t} disabled={txBusy} onClick={handleAddTx}>{txBusy?'Saving…':'Save Transaction'}</PrimaryButton>
             </Card>
           </Modal>
         )}
