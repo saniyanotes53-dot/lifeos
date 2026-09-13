@@ -29,3 +29,21 @@ test('reminder emails require opt in and stop on settlement',()=>{
  assert.equal(reminderRecipients('billSplits',bill).length,2);
  assert.equal(reminderRecipients('billSplits',{...bill,settled:true}).length,0);
 });
+test('Gemini transaction formats normalize without rejecting valid user amounts',()=>{
+ for(const date of ['13/09/2026','13-09-2026','today','2026-09-13']){
+  const [a]=validateActions([transactionDefaults({type:'create_transaction',ref:'a',date,amount:'Rs500',transactionType:'Expense'},{localDate:'2026-09-13'},'Log in the expense of travel Rs500')]);
+  assert.equal(a.date,'2026-09-13');assert.equal(a.amount,500);
+ }
+ for(const text of ['Log an expense of 350Rs for spectacles','Log in the expense of travel Rs500']){
+  const [a]=validateActions([transactionDefaults({type:'create_transaction',ref:'a'},{localDate:'2026-09-13'},text)]);
+  assert.equal(a.amount,text.includes('350')?350:500);
+ }
+ assert.throws(()=>validateActions([transactionDefaults({type:'create_transaction',ref:'a'},{localDate:'2026-09-13'},'Expenses Rs500 and Rs350')]));
+});
+test('the two reported expense commands produce executable actions without a model request',async()=>{
+ const {proposeActions}=await import('../server/agent.js');
+ for(const text of ['Log an expense of 350Rs for I have bought my new spectacles frame','Log in the expense of travel Rs500']){
+  const result=await proposeActions(text,[],{localDate:'2026-09-13'},()=>{throw Error('Should not need Gemini to format this command');});
+  assert.equal(result.actions.length,1);assert.equal(result.actions[0].amount,text.includes('350')?350:500);assert.equal(result.actions[0].date,'2026-09-13');
+ }
+});

@@ -1,3 +1,4 @@
+import {transactionIssues} from './transaction-defaults.js';
 import {parseLocalDate} from '../utils/dates.js';
 import {normalizeTag} from './event-tags.js';
 export const actionTypes=['create_task','update_task','delete_task','schedule_task','move_block','delete_block','set_budget','create_transaction','tag_transaction','delete_transaction','delete_budget'];
@@ -21,7 +22,7 @@ export function validateActions(actions){
     }
     if(a.type==='delete_task'||a.type==='delete_block')result.title=String(a.before.title||a.before.label||'Untitled');
     if(a.type==='create_transaction'){
-      if(!parseLocalDate(a.date)||!Number.isFinite(a.amount)||a.amount<=0||a.amount>100000000||!['income','expense'].includes(a.transactionType)||!short(a.category))throw new Error('A transaction needs a date, positive amount, category and income/expense type.');
+      const issues=transactionIssues(a);if(issues.length)throw new Error('The assistant returned an invalid '+issues.join(', ')+'. Please retry.');
       Object.assign(result,{date:a.date,amount:Math.round(a.amount*100)/100,transactionType:a.transactionType,category:a.category.trim(),note:String(a.note||'').slice(0,200),eventTag:normalizeTag(a.eventTag)});
     }
     if(a.type==='tag_transaction')result.eventTag=normalizeTag(a.eventTag);
