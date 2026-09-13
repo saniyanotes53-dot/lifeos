@@ -47,3 +47,12 @@ test('the two reported expense commands produce executable actions without a mod
   assert.equal(result.actions.length,1);assert.equal(result.actions[0].amount,text.includes('350')?350:500);assert.equal(result.actions[0].date,'2026-09-13');
  }
 });
+test('Add commands and suffix rupee signs create valid expenses; bare amounts stay ambiguous',async()=>{
+ const {proposeActions}=await import('../server/agent.js');
+ const {simpleExpenseCommand}=await import('../src/assistant/transaction-defaults.js');
+ for(const text of ['Add 300Rs expense for food','Add 300₹ expense in wallet']){
+  const result=await proposeActions(text,[],{localDate:'2026-09-13'},()=>{throw Error('Unexpected model request');});assert.equal(result.actions[0].amount,300);
+ }
+ assert.equal(simpleExpenseCommand('Add 500₹',{localDate:'2026-09-13'}),null);
+ assert.equal(simpleExpenseCommand('Add 300₹ expense yesterday',{localDate:'2026-09-13'}),null);
+});

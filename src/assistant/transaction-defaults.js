@@ -20,12 +20,12 @@ export function transactionDefaults(action,context,text=''){
   if(expense!==income)result.transactionType=expense?'expense':'income';
  }
  if(typeof result.amount==='string'){
-  const value=result.amount.trim().replace(/^(?:₹|rs\.?|inr)\s*/i,'').replace(/\s*(?:rs\.?|inr|rupees)$/i,'').replace(/,/g,'');
+  const value=result.amount.trim().replace(/^(?:₹|rs\.?|inr)\s*/i,'').replace(/\s*(?:₹|rs\.?|inr|rupees)$/i,'').replace(/,/g,'');
   if(/^\d+(\.\d{1,2})?$/.test(value))result.amount=Number(value);
  }
  // One explicit currency amount can fill an omitted value, never replace a supplied value.
  if(result.amount==null){
-  const matches=[...text.matchAll(/(?:₹|\bRs\.?\s*|\bINR\s*)(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:Rs\b|INR\b|rupees\b)/gi)];
+  const matches=[...text.matchAll(/(?:₹|\bRs\.?\s*|\bINR\s*)(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:₹|Rs\b|INR\b|rupees\b)/gi)];
   if(matches.length===1)result.amount=Number((matches[0][1]||matches[0][2]).replace(/,/g,''));
  }
  return result;
@@ -37,7 +37,7 @@ export function transactionIssues(a){
 // Execute unambiguous single-entry commands without depending on model formatting.
 // Complex requests, multiple amounts and dated instructions continue through Gemini.
 export function simpleExpenseCommand(text,context){
- if(!/^log\s+(?:in\s+)?(?:(?:an?|the)\s+)?expense\b/i.test(text.trim())||/[?;\n]|\b(and|then|if|not|don't|tomorrow|yesterday|last|next|ago|on|dated|today|days?|weeks?|months?|years?|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|delete|remove|schedule|update|create)\b|\d[/-]\d/i.test(text))return null;
+ if(!/^(?:log|add|record)\b/i.test(text.trim())||!(/\bexpense\b/i.test(text))||/[?;\n]|\b(and|then|if|not|don't|tomorrow|yesterday|last|next|ago|on|dated|today|days?|weeks?|months?|years?|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|delete|remove|schedule|update|create)\b|\d[/-]\d/i.test(text))return null;
  const a=transactionDefaults({type:'create_transaction',ref:'expense',transactionType:'expense'},context,text);
  if(transactionIssues(a).length)return null;
  const tags=[...text.matchAll(/#([\p{L}\p{N}_-]+)/gu)];if(tags.length>1)return null;

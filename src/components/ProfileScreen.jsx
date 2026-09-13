@@ -1,3 +1,4 @@
+import CloudNotifications from './CloudNotifications';
 import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
 import { PALETTES, inputStyle } from "../theme";
@@ -188,7 +189,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           <label><input type="checkbox" checked={reminders} disabled={notificationBusy} onChange={reminderChange}/> Timetable reminders while Life OS is open</label>
           <label><input type="checkbox" checked={browserAlerts} disabled={notificationBusy} onChange={alertChange}/> Show browser notifications for due reminders</label>
           {notice&&<p role="status">{notice}</p>}
-          <p style={{fontSize:13,color:t.muted}}>Browser alerts require permission and an open Life OS tab; mobile browsers may pause background tabs. Closed-app push and scheduled email digests are not enabled. Reset and verification emails use Firebase.</p>
+          <p style={{fontSize:13,color:t.muted}}>The two controls above work while a Life OS tab is open. Use the background delivery controls below for email and closed-tab push.</p><CloudNotifications t={t} user={user}/>
         </Card>
 
         {/* Help & Guide */}

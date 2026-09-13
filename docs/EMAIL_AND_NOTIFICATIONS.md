@@ -80,3 +80,19 @@ Initial bounded capacity: 1,000 records per collection and 20 recipient emails p
 ### Password reset still missing
 
 Password resets use Firebase Authentication's own sender, independently of these reminder variables. Inspect Authentication → Users to verify the exact address and enabled email/password provider, then Authentication → Templates → Password reset. Use the console's reset-password action for that known account to distinguish app requests from provider delivery. Review spam/quota restrictions and the exact browser Firebase error code. Custom action URLs must retain Firebase's one-time query parameters. The code cannot repair sender/template settings without console administration access. Do not loosen Firestore rules to troubleshoot Authentication email.
+
+## Background browser push and timed task emails
+
+Implemented in Profile → Email & Reminders → Reminders outside Life OS. These controls show actual configuration status. Browser push uses Firebase Cloud Messaging and a push-event service worker; it does not need an open Life OS tab. Device/browser notification settings still apply. Account-level email opt-in sends to the account's email. Old reminders without `remindAt` need resaving through the timetable UI.
+
+Production setup (credentials go only in Vercel, never chat or source):
+
+1. Firebase project `lifeos-61443` → Project settings → Cloud Messaging → Web Push certificates → Generate key pair. Set the **public** key as `FCM_VAPID_PUBLIC_KEY` in Vercel. Enable FCM HTTP v1 and Registration APIs if disabled.
+2. Set `FIREBASE_SERVICE_ACCOUNT_JSON` as a secret for the same project, with Firestore read/write and Firebase Cloud Messaging send permissions. This server credential is not the web Firebase config or Gemini key.
+3. For emails, set `RESEND_API_KEY` and verified `EMAIL_FROM`. This is independent of Firebase Auth's password reset email sender.
+4. Set a random `CRON_SECRET`. Deploy the timetable `remindAt` collection-group index in `firestore.indexes.json` (Firebase CLI: `firebase deploy --only firestore:indexes --project lifeos-61443`; or add an ascending collection-group index for timetable/remindAt in the console).
+5. Create a scheduler at https://cron-job.org/ pointing to `https://lifeos53.vercel.app/api/notify-due`, every minute, with HTTP header `Authorization: Bearer YOUR_CRON_SECRET`. Never put the secret in the URL. Vercel Hobby's daily cron cannot deliver minute-by-minute reminders. Use only one scheduler.
+6. Set `NOTIFICATION_SCHEDULER_ENABLED=true` and redeploy after configuring the job. Check `/api/notify-due?status=1`. This reports configured/enabled state; it cannot prove a scheduler exists or delivery succeeded.
+7. In Life OS Profile enable background browser push, accept Chrome's permission, and enable email reminders. Schedule a real task a few minutes ahead, close the tab, and verify browser/email delivery. Review scheduler execution logs and provider delivery logs if either fails.
+
+The endpoint authenticates scheduler requests, checks recent due blocks and linked task completion, and sends only opted-in channels. Per-event/channel receipts suppress repeated runs; stable notification tags collapse duplicate displays. Expired FCM tokens are removed. A failed provider request releases its receipt for retry. A process crash after claiming a receipt can lose a reminder; this initial scheduler is best-effort, not a guaranteed delivery queue. The active window is five minutes and a run accepts at most 20 deliveries; larger workloads need a durable queue. Receipt retention/TTL should be configured as usage grows. No emails or push tests were sent during implementation.
