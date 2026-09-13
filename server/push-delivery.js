@@ -15,7 +15,3 @@ export async function dueBlocks(token,now){
  const docs=rows.filter(r=>r.document).map(r=>({...decode({mapValue:{fields:r.document.fields}}),path:r.document.name.split('/documents')[1]}));
  if(docs.length>100)throw Error('Too many simultaneous reminders; configure queueing.');return docs.filter(r=>/^\/users\/[^/]+\/timetable\/[^/]+$/.test(r.path)&&isDue(r,now));
 }
-export async function deliverPush(access,token,body,tag){
- const r=await fetch('https://fcm.googleapis.com/v1/projects/lifeos-61443/messages:send',{method:'POST',headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},body:JSON.stringify({message:{token,data:{title:'Life OS reminder',body,tag},webpush:{headers:{TTL:'300',Urgency:'high'}}}}),signal:AbortSignal.timeout(10000)});
- if(!r.ok){const error=await r.json().catch(()=>({}));const stale=error.error?.details?.some(d=>d.errorCode==='UNREGISTERED');if(stale)return {expired:true};throw Error(`Push provider rejected the message (${r.status}).`);}return {accepted:true};
-}

@@ -1,3 +1,7 @@
+# Current reminder setup
+
+**The Resend/FCM configuration below is superseded for reminder delivery.** Follow [Gmail SMTP + Google Apps Script + Web Push](GOOGLE_REMINDER_SETUP.md). Firebase Authentication and Firestore remain in use. The authentication-email guidance below still applies.
+
 # Authentication emails and reminders
 
 ## Shipped code

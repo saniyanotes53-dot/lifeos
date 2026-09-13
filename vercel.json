@@ -13,12 +13,10 @@
     "api/**/*.js": {
       "includeFiles": "{server/**,src/assistant/**,src/utils/**}",
       "maxDuration": 60
+    },
+    "api/**/*.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{node_modules/**,dist/**,tests/**,.git/**}"
     }
-  },
-  "crons": [
-    {
-      "path": "/api/reminder-emails",
-      "schedule": "0 8 * * *"
-    }
-  ]
+  }
 }
