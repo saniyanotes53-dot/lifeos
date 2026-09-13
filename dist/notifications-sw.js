@@ -1,0 +1,1 @@
+self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{const current=list.find(c=>new URL(c.url).origin===self.location.origin);return current?current.focus():self.clients.openWindow('/?view=timetable');}));});

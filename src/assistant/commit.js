@@ -11,8 +11,8 @@ export async function commitProposal(uid,input,adapter){
  const required=new Set();
  if(types.some(t=>['create_task','update_task','delete_task','schedule_task'].includes(t)))required.add('tasks');
  if(types.some(t=>['update_task','delete_task','schedule_task','move_block','delete_block'].includes(t)))required.add('timetable');
- if(types.includes('set_budget'))required.add('categoryBudgets');
- if(types.includes('tag_transaction'))required.add('transactions');
+ if(types.some(t=>['set_budget','delete_budget'].includes(t)))required.add('categoryBudgets');
+ if(types.some(t=>['tag_transaction','delete_transaction'].includes(t)))required.add('transactions');
  const digest=await adapter.hash(hash);
  return adapter.transaction(async tx=>{
   const profile=await tx.profile();

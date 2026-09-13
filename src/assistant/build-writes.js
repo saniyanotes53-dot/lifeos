@@ -11,7 +11,9 @@ export function buildWrites(actions,snapshot,proposalId,offset,now=Date.now(),of
  }
  const updated=new Set();
  for(const a of actions){
-  if(a.id){const target=(['update_task','delete_task'].includes(a.type)?'tasks':['move_block','delete_block'].includes(a.type)?'timetable':a.type==='tag_transaction'?'transactions':'categoryBudgets')+'/'+a.id;if(updated.has(target))throw problem('The plan changes the same record twice. Ask for a simpler plan.');updated.add(target);}
+  if(a.id){const target=(['update_task','delete_task'].includes(a.type)?'tasks':['move_block','delete_block'].includes(a.type)?'timetable':['tag_transaction','delete_transaction'].includes(a.type)?'transactions':'categoryBudgets')+'/'+a.id;if(updated.has(target))throw problem('The plan changes the same record twice. Ask for a simpler plan.');updated.add(target);}
+  if(a.type==='delete_transaction'){unchanged(transactions.get(a.id),a.before,['date','amount','type','category','note','eventTag']);changes.set(unique('transactions',a.id),{collection:'transactions',id:a.id,delete:true});}
+  if(a.type==='delete_budget'){unchanged(budgets.get(a.id),a.before,['category','limit']);budgets.delete(a.id);changes.set(unique('categoryBudgets',a.id),{collection:'categoryBudgets',id:a.id,delete:true});}
   if(a.type==='delete_task'){
    unchanged(tasks.get(a.id),a.before,['title','priority','done']);tasks.delete(a.id);changes.set(unique('tasks',a.id),{collection:'tasks',id:a.id,delete:true});
    for(const b of blocks.values())if(b.taskId===a.id){blocks.delete(b.id);changes.set(unique('timetable',b.id),{collection:'timetable',id:b.id,delete:true});}

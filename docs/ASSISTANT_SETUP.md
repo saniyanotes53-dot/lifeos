@@ -9,7 +9,7 @@ Firebase project `lifeos-61443`; the Gemini key stays on the server.
 
 The shared assistant can create/edit/complete/delete tasks, schedule tasks,
 move/remove timetable blocks, set monthly category limits, log income/expenses,
-and tag existing transactions. Deleting a task also removes its linked blocks;
+tag existing transactions, and delete transactions/category budgets after review. Deleting a task also removes its linked blocks;
 removing a block keeps the task. Destructive changes appear in the preview.
 Confirm changes or type “yes” while a proposal is visible to save. A request to
 revise it sends the previous unconfirmed proposal back to Gemini. No provider
@@ -85,3 +85,5 @@ Live signed-in smoke checks:
 Browser access to the local preview is blocked in the agent environment. This
 means automated local tests do not prove real signed-in permissions or provider
 latency. Deployment checks and the above account test are separate gates.
+
+Date/time and email follow-up: see `EMAIL_AND_NOTIFICATIONS.md`. Relative dates now use a device-based 14-day calendar; common 12-hour and DD/MM/YYYY inputs are parsed before the model proposes changes. Legacy records without dates remain visible. Live Gemini proposal generation was verified; automatic approval review blocked the unrequested test-record save, so account write verification still needs explicit approval.

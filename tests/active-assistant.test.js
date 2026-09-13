@@ -53,7 +53,7 @@ test('Gemini only proposes structured actions and attaches original values for r
  const result=await proposeActions('Raise priority',[],{tasks:[original]},async(url,options)=>{
   const body=JSON.parse(options.body);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.match(body.systemInstruction.parts[0].text,/must click Confirm changes/);
   return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({reply:'Review this priority change.',actions:[{type:'update_task',ref:'edit',id:'existing',title:'Read',priority:'High',done:false}]})}]}}]})};
- });assert.deepEqual(result.actions[0].before,original);
+ });assert.deepEqual(result.actions[0].before,original);assert.match(result.reply,/Ready for confirmation/);
  }finally{if(old===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=old;}
 });
 const res=()=>({statusCode:200,setHeader(){},status(n){this.statusCode=n;return this;},json(x){this.body=x;return this;},end(){return this;}});

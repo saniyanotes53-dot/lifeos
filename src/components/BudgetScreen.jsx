@@ -484,7 +484,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
             </div>
 
             {tx.length === 0 && <Empty t={t} text="No transactions logged yet." />}
-            {[...tx].reverse().slice(0, 6).map(x => (
+            {[...tx].sort((a,b)=>(b.date||" ").localeCompare(a.date||" ")).slice(0, 6).map(x => (
               <Card t={t} key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{
@@ -519,7 +519,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
             </div>
 
             {tx.length === 0 && <Empty t={t} text="No transactions recorded." />}
-            {[...tx].reverse().map(x => (
+            {[...tx].sort((a,b)=>(b.date||" ").localeCompare(a.date||" ")).map(x => (
               <Card t={t} key={x.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{x.note || x.category}</div>

@@ -5,7 +5,7 @@ import { Field, PrimaryButton, GhostButton, Hero } from "./primitives";
 import { registerWithEmail, loginWithEmail, loginWithGoogle, resetPassword } from "../auth";
 
 export default function AuthScreen({ t, onLogin }) {
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState(window.location.pathname === "/reset" ? "reset" : "login");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [name, setName] = useState("");
@@ -40,6 +40,13 @@ export default function AuthScreen({ t, onLogin }) {
       case "auth/missing-android-pkg-name":
       case "auth/missing-ios-bundle-id":
         return "Firebase action code settings are incomplete. Check Firebase Console → Authentication → Templates → Password reset.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Wait a few minutes before requesting another email.";
+      case "auth/network-request-failed":
+        return "Could not reach Firebase. Check your connection and try again.";
+      case "auth/unauthorized-continue-uri":
+      case "auth/invalid-continue-uri":
+        return "The reset email redirect is not configured. Refresh this page to load the latest reset flow.";
       case "auth/invalid-action-code":
         return "The action code is invalid. Request a new password reset link.";
       case "auth/expired-action-code":
@@ -58,7 +65,7 @@ export default function AuthScreen({ t, onLogin }) {
       try {
         setLoading(true);
         await resetPassword(email.trim());
-        setMsg("Password reset link sent to " + email + ". Check your inbox.");
+        setMsg("If an account exists for this email, Firebase will send a reset link. Check Inbox and Spam. Use the newest email; delivery can take a few minutes.");
       } catch (e) {
         setMsg(formatAuthError(e));
       } finally {
@@ -154,8 +161,8 @@ export default function AuthScreen({ t, onLogin }) {
 
         <div style={{ textAlign: "center", fontSize: 14, color: t.muted }}>
           {mode === "login" && <>New here? <button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("register"); setMsg(""); }} style={{ color: t.a1, cursor: "pointer" }}>Create an account</button></>}
-          {mode === "register" && <>Have an account? <button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("login"); setMsg(""); }} style={{ color: t.a1, cursor: "pointer" }}>Log in</button></>}
-          {mode === "reset" && <>Remembered it? <button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("login"); setMsg(""); }} style={{ color: t.a1, cursor: "pointer" }}>Back to login</button></>}
+          {mode === "register" && <>Have an account? <button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("login"); setMsg(""); if(window.location.pathname === "/reset")window.location.assign("/"); }} style={{ color: t.a1, cursor: "pointer" }}>Log in</button></>}
+          {mode === "reset" && <>Remembered it? <button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("login"); setMsg(""); if(window.location.pathname === "/reset")window.location.assign("/"); }} style={{ color: t.a1, cursor: "pointer" }}>Back to login</button></>}
           {mode !== "reset" && <div style={{ marginTop: 8 }}><button type="button" className="link-button" disabled={loading} onClick={() => { setShowPassword(false); setMode("reset"); setMsg(""); }} style={{ color: t.muted, cursor: "pointer", textDecoration: "underline" }}>Forgot password?</button></div>}
         </div>
 

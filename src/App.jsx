@@ -1,3 +1,4 @@
+import EmailActionScreen from './components/EmailActionScreen';
 import AssistantPanel from './components/AssistantPanel';
 import {Modal,Card,IconBtn} from './components/primitives';
 import React, { useState, useEffect } from "react";
@@ -34,6 +35,8 @@ export default function App() {
   const askAssistant=(prompt='')=>{setAssistantPrompt(prompt);setAssistantOpen(true);};
   const [subscriptions,setSubscriptions]=useState([]),[billSplits,setBillSplits]=useState([]);
   const [pushNotice, setPushNotice] = useState("");
+  const [dataErrors,setDataErrors]=useState({});
+  useEffect(()=>{const handle=e=>setDataErrors(old=>({...old,[e.detail.collection]:e.detail.error}));window.addEventListener("lifeos-data-status",handle);return()=>window.removeEventListener("lifeos-data-status",handle);},[]);
   const [healthView, setHealthView] = useState("goals");
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
   const [scheme, setScheme] = useState(() => localStorage.getItem("lifeos_scheme") || "blue");
@@ -62,7 +65,7 @@ export default function App() {
   const [bodyMetrics, setBodyMetrics] = useState([]);
 
   useEffect(() => watchReminders(user?.uid, blocks, tasks, setPushNotice), [user?.uid, blocks, tasks]);
-  useEffect(() => { setPushNotice(""); }, [user?.uid]);
+  useEffect(() => { setPushNotice(""); setDataErrors({}); }, [user?.uid]);
 
   // Auth persistence listener
   useEffect(() => onAuthChange((firebaseUser) => {
@@ -136,7 +139,7 @@ export default function App() {
     setTab("home");
   };
 
-  const assistantData={tasks,blocks,sleep,tx,workouts,wallets,categoryBudgets,subscriptions,billSplits,loans};
+  const assistantData={tasks,blocks,sleep,tx,workouts,wallets,categoryBudgets,subscriptions,billSplits,loans,dataErrors};
   const displayName = user ? (user.displayName || user.email?.split("@")[0] || "User") : "";
 
   // Pro navigation items for desktop sidebar & mobile
@@ -150,6 +153,8 @@ export default function App() {
     ["budget", Wallet, "Budget"],
     ["reports", BarChart3, "Reports"],
   ];
+
+  if(window.location.pathname === "/auth/action")return <EmailActionScreen t={t}/>;
 
   // Loading state
   if (user === undefined) {
@@ -169,7 +174,7 @@ export default function App() {
   }
 
   // Not logged in: Show Full-page Auth Screen
-  if (!user) {
+  if (!user || window.location.pathname === "/reset") {
     return (
       <div style={{
         minHeight: "100vh", width: "100%", background: t.bg, display: "flex",

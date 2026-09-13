@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc,
-  onSnapshot, query, orderBy, runTransaction, getDocs, limit,
+  onSnapshot, query, runTransaction, getDocs, limit,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {commitProposal} from "./assistant/commit.js";
@@ -9,20 +9,17 @@ import { parseLocalDate } from "./utils/dates";
 const col = (uid, name) => collection(db, "users", uid, name);
 
 export function watchCollection(uid, name, onChange, orderField = null) {
-  const collectionRef = col(uid, name);
-  const q = orderField ? query(collectionRef, orderBy(orderField, "desc")) : collectionRef;
-  let fallbackUnsub = null;
-  const unsub = onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  }, (err) => {
-    console.warn(`Query with orderBy('${orderField}') on ${name} encountered an error:`, err);
-    if (orderField && !fallbackUnsub) {
-      fallbackUnsub = onSnapshot(collectionRef, (fallbackSnap) => {
-        onChange(fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      });
-    }
+  // A server orderBy excludes legacy documents without that field. Read all
+  // owner records, then sort locally so the assistant sees the same full set.
+  return onSnapshot(col(uid,name),snap=>{
+    const records=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(orderField)records.sort((a,b)=>String(b[orderField]??'').localeCompare(String(a[orderField]??'')));
+    onChange(records);
+    window.dispatchEvent(new CustomEvent('lifeos-data-status',{detail:{collection:name,error:null}}));
+  },error=>{
+    console.warn('[firestore.read]',{collection:name,code:error.code});
+    window.dispatchEvent(new CustomEvent('lifeos-data-status',{detail:{collection:name,error:error.code||'unavailable'}}));
   });
-  return () => { unsub(); if (fallbackUnsub) fallbackUnsub(); };
 }
 
 export async function ensureUserProfile(user) {

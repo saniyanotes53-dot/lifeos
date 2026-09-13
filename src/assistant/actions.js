@@ -1,6 +1,6 @@
 import {parseLocalDate} from '../utils/dates.js';
 import {normalizeTag} from './event-tags.js';
-export const actionTypes=['create_task','update_task','delete_task','schedule_task','move_block','delete_block','set_budget','create_transaction','tag_transaction'];
+export const actionTypes=['create_task','update_task','delete_task','schedule_task','move_block','delete_block','set_budget','create_transaction','tag_transaction','delete_transaction','delete_budget'];
 const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,256}$/.test(value);
 const short=value=>typeof value==='string'&&value.trim().length>0&&value.length<=200;
 export function validateActions(actions){
@@ -15,7 +15,7 @@ export function validateActions(actions){
       Object.assign(result,{title:a.title.trim(),priority:a.priority,done:a.done});
       if(a.type==='create_task'&&a.done)throw new Error('New tasks must start as open.');
     }
-    if(['update_task','move_block','delete_task','delete_block','tag_transaction'].includes(a.type)){
+    if(['update_task','move_block','delete_task','delete_block','tag_transaction','delete_transaction','delete_budget'].includes(a.type)){
       if(!id(a.id))throw new Error('The record to update is missing.');result.id=a.id;
       if(!a.before||typeof a.before!=='object')throw new Error('The original record is missing.');result.before=a.before;
     }
@@ -40,6 +40,8 @@ export function validateActions(actions){
   });
 }
 export function actionDescription(a){
+  if(a.type==='delete_transaction')return `Delete transaction: ${a.before.note||a.before.category} · ₹${a.before.amount} · ${a.before.date}`;
+  if(a.type==='delete_budget')return `Delete monthly budget: ${a.before.category} · ₹${a.before.limit}`;
   if(a.type==='delete_task')return `Delete task: ${a.title} (also removes its linked timetable blocks)`;
   if(a.type==='delete_block')return `Remove timetable block: ${a.title} · ${a.before.date} ${a.before.time} (keeps the task)`;
   if(a.type==='create_transaction')return `Log ${a.transactionType}: ₹${a.amount} · ${a.category} · ${a.date}${a.eventTag?` · #${a.eventTag}`:''}`;

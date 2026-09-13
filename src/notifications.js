@@ -13,6 +13,17 @@ export async function disableReminders(user){
   if(user?.uid)localStorage.removeItem(preference(user.uid));
   window.dispatchEvent(new Event('lifeos-reminders-change'));
 }
+export async function enableBrowserAlerts(user){
+ if(!user?.uid)throw new Error('Sign in to enable alerts.');
+ if(!('Notification' in window))throw new Error('This browser does not support system notifications. In-app reminders are still available.');
+ const permission=await Notification.requestPermission();
+ if(permission!=='granted')throw new Error('Browser notifications are blocked. You can allow them in site settings; in-app reminders still work.');
+ if('serviceWorker' in navigator)await navigator.serviceWorker.register('/notifications-sw.js');
+ localStorage.setItem('lifeos_browser_alerts_'+user.uid,'true');
+ await enableReminders(user);
+}
+export function browserAlertsEnabled(uid){try{return localStorage.getItem('lifeos_browser_alerts_'+uid)==='true';}catch{return false;}}
+export function disableBrowserAlerts(uid){localStorage.removeItem('lifeos_browser_alerts_'+uid);}
 export function dueReminders(blocks,tasks,now,seen){
   const complete=new Set(tasks.filter(t=>t.done).map(t=>t.id));
   return blocks.filter(b=>{
@@ -31,9 +42,15 @@ export function watchReminders(uid,blocks,tasks,callback){
   let seen;
   try{seen=new Set(JSON.parse(sessionStorage.getItem(key)||'[]'));}catch{seen=new Set();}
   function check(){
-    if(!remindersEnabled(uid)||document.visibilityState==='hidden')return;
+    if(!remindersEnabled(uid))return;
+    const system=browserAlertsEnabled(uid)&&typeof Notification!=='undefined'&&Notification.permission==='granted';
+    if(document.visibilityState==='hidden'&&!system)return;
     const due=dueReminders(blocks,tasks,Date.now(),seen);
     if(!due.length)return;
+    if(system){const body=due.map(b=>`${b.time} · ${b.label||'Scheduled block'}`).join(' / ');
+      if('serviceWorker' in navigator)navigator.serviceWorker.ready.then(reg=>reg.showNotification('Life OS reminder',{body,tag:'lifeos-timetable',data:{url:'/?view=timetable'}})).catch(()=>{});
+      else try{new Notification('Life OS reminder',{body,tag:'lifeos-timetable'});}catch{}
+    }
     callback(due.map(b=>`${b.time} · ${b.label||'Scheduled block'}`).join(' / '));
     try{sessionStorage.setItem(key,JSON.stringify([...seen].slice(-500)));}catch{/* Memory still prevents duplicates during this subscription. */}
   }

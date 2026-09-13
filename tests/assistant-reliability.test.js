@@ -39,3 +39,17 @@ test('streamed Gemini text appears before the full validated proposal, including
  const bytes=new TextEncoder().encode(events),seen=[];const stream=new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=7)c.enqueue(bytes.slice(i,i+7));c.close();}});
  assert.equal(await readGeminiStream(stream,text=>seen.push(text)),output);assert.ok(seen.length>1);assert.equal(seen.at(-1),'Read at 7 pm.\nThen rest.');
 });
+import {dateContext} from '../src/assistant/date-context.js';
+test('date hints resolve Indian dates, tomorrow and 12-hour times using the device day',()=>{
+ const c={localDate:'2026-09-13',localTime:'23:50'};
+ assert.equal(dateContext('tomorrow at 7 pm',c).interpretedRequest.date,'2026-09-14');
+ assert.equal(dateContext('tomorrow at 7 pm',c).interpretedRequest.time,'19:00');
+ assert.equal(dateContext('day after tomorrow at 12 am',c).interpretedRequest.time,'00:00');
+ assert.equal(dateContext('next Monday at 09:30',c).interpretedRequest.date,'2026-09-14');
+ assert.equal(dateContext('14/09/2026 at 7 in the evening for 1 hour',c).interpretedRequest.durationMinutes,60);
+ assert.equal(dateContext('14/09/2026 at 7 in the evening',c).interpretedRequest.time,'19:00');
+ assert.equal(dateContext('tomorrow',{localDate:'2026-12-31'}).interpretedRequest.date,'2027-01-01');
+});
+test('budget and transaction deletion is limited to the reviewed current records',()=>{
+ const s=empty(),budget={id:'b',category:'Food',limit:1000},expense={id:'e',date:'2026-09-13',type:'expense',category:'Food',amount:20,note:'Tea'};s.categoryBudgets=[budget];s.transactions=[expense];const actions=validateActions([{type:'delete_budget',ref:'b',id:'b',before:budget},{type:'delete_transaction',ref:'e',id:'e',before:expense}]);assert.deepEqual(buildWrites(actions,s,proposalId,0).map(w=>[w.collection,w.delete]),[['categoryBudgets',true],['transactions',true]]);assert.throws(()=>buildWrites(actions,{...s,transactions:[{...expense,amount:30}]},proposalId,0),/record changed/);
+});

@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
 import { PALETTES, inputStyle } from "../theme";
 import { Card, Screen, PrimaryButton, GhostButton, SectionLabel } from "./primitives";
 import { resetPassword } from "../auth";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth } from "../firebase";
+import {sendEmailVerification} from "firebase/auth";
+import {enableReminders,disableReminders,remindersEnabled,enableBrowserAlerts,disableBrowserAlerts,browserAlertsEnabled} from "../notifications";
 
 export default function ProfileScreen({ t, user, theme, setTheme, scheme, setScheme, onLogout, onOpenGuide }) {
   const [newPassword, setNewPassword] = useState("");
@@ -12,21 +14,13 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
   const [pwMsg, setPwMsg] = useState("");
   const [pwLoading, setPwLoading] = useState(false);
 
-  // Notification preferences state (persisted locally / Firestore ready)
-  const [notifs, setNotifs] = useState(() => {
-    try {
-      const saved = localStorage.getItem("lifeos_notifs");
-      return saved ? JSON.parse(saved) : { timetableReminders: true, weeklyDigest: true, monthlyDigest: true };
-    } catch {
-      return { timetableReminders: true, weeklyDigest: true, monthlyDigest: true };
-    }
-  });
-
-  const toggleNotif = (key) => {
-    const updated = { ...notifs, [key]: !notifs[key] };
-    setNotifs(updated);
-    localStorage.setItem("lifeos_notifs", JSON.stringify(updated));
-  };
+  const [reminders,setReminders]=useState(()=>remindersEnabled(user.uid));
+  const [browserAlerts,setBrowserAlerts]=useState(()=>browserAlertsEnabled(user.uid));
+  const [notice,setNotice]=useState(''),[notificationBusy,setNotificationBusy]=useState(false);
+  useEffect(()=>{const update=()=>{setReminders(remindersEnabled(user.uid));setBrowserAlerts(browserAlertsEnabled(user.uid));};window.addEventListener('lifeos-reminders-change',update);return()=>window.removeEventListener('lifeos-reminders-change',update);},[user.uid]);
+  async function reminderChange(){setNotificationBusy(true);try{if(reminders)await disableReminders(user);else await enableReminders(user);}catch(e){setNotice(e.message);}finally{setNotificationBusy(false);}}
+  async function alertChange(){setNotificationBusy(true);try{if(browserAlerts){disableBrowserAlerts(user.uid);setBrowserAlerts(false);}else {await enableBrowserAlerts(user);setBrowserAlerts(true);}}catch(e){setNotice(e.message);}finally{setNotificationBusy(false);}}
+  async function sendAccountEmail(kind){setPwLoading(true);setPwMsg('');try{if(kind==='reset')await resetPassword(user.email);else await sendEmailVerification(auth.currentUser);setPwMsg('Email requested. Check Inbox and Spam, and use the newest link.');}catch(e){setPwMsg(e.code==='auth/too-many-requests'?'Please wait a few minutes before requesting another email.':e.message);}finally{setPwLoading(false);}}
 
   const handleUpdatePassword = async () => {
     setPwMsg("");
@@ -187,49 +181,14 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           </PrimaryButton>
         </Card>
 
-        {/* Notification Preferences */}
-        <SectionLabel t={t} text="Notification Preferences" />
-        <Card t={t} style={{ padding: 18 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Timetable & Task Reminders</div>
-                <div style={{ fontSize: 11.5, color: t.muted }}>Alerts when scheduled time blocks arrive</div>
-              </div>
-              <input aria-label="Timetable and task reminders"
-                type="checkbox"
-                checked={notifs.timetableReminders}
-                onChange={() => toggleNotif("timetableReminders")}
-                style={{ width: 18, height: 18, accentColor: t.a1, cursor: "pointer" }}
-              />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: `1px solid ${t.line}` }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Weekly Email Digest</div>
-                <div style={{ fontSize: 11.5, color: t.muted }}>Summary of completed tasks, sleep average, and spending</div>
-              </div>
-              <input aria-label="Weekly email digest"
-                type="checkbox"
-                checked={notifs.weeklyDigest}
-                onChange={() => toggleNotif("weeklyDigest")}
-                style={{ width: 18, height: 18, accentColor: t.a1, cursor: "pointer" }}
-              />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: `1px solid ${t.line}` }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: t.text }}>Monthly Digest & Trends</div>
-                <div style={{ fontSize: 11.5, color: t.muted }}>Month-over-month health & budget comparative insights</div>
-              </div>
-              <input aria-label="Monthly digest"
-                type="checkbox"
-                checked={notifs.monthlyDigest}
-                onChange={() => toggleNotif("monthlyDigest")}
-                style={{ width: 18, height: 18, accentColor: t.a1, cursor: "pointer" }}
-              />
-            </div>
-          </div>
+        <SectionLabel t={t} text="Email & Reminders" />
+        <Card t={t} style={{padding:18,display:'grid',gap:14}}>
+          <GhostButton t={t} disabled={pwLoading} onClick={()=>sendAccountEmail('reset')}>Send password reset email</GhostButton>
+          {!user.emailVerified&&<GhostButton t={t} disabled={pwLoading} onClick={()=>sendAccountEmail('verify')}>Send email verification</GhostButton>}
+          <label><input type="checkbox" checked={reminders} disabled={notificationBusy} onChange={reminderChange}/> Timetable reminders while Life OS is open</label>
+          <label><input type="checkbox" checked={browserAlerts} disabled={notificationBusy} onChange={alertChange}/> Show browser notifications for due reminders</label>
+          {notice&&<p role="status">{notice}</p>}
+          <p style={{fontSize:13,color:t.muted}}>Browser alerts require permission and an open Life OS tab; mobile browsers may pause background tabs. Closed-app push and scheduled email digests are not enabled. Reset and verification emails use Firebase.</p>
         </Card>
 
         {/* Help & Guide */}
