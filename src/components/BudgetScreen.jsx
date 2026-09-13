@@ -1,3 +1,4 @@
+import BudgetTools from './BudgetTools';
 import { IconBtn } from "./primitives";
 import { Modal } from "./primitives";
 import React, { useState, useMemo } from "react";
@@ -17,10 +18,9 @@ import { Card, Screen, SectionLabel, StatChip, PrimaryButton, GhostButton, Empty
 import { addItem, deleteItem, updateItem } from "../firestore";
 import { HorizontalProgressBar } from "./ProgressBars";
 
-export default function BudgetScreen({ t, tx = [], userId, wallets = [], categoryBudgets = [], loans = [] }) {
+export default function BudgetScreen({ t, tx = [], userId, wallets = [], categoryBudgets = [], loans = [], subscriptions = [], billSplits = [], onAskAssistant }) {
   // Navigation view within Budget
-  const [subView, setSubView] = useState("overview"); // overview, transactions, wallets, budgets, borrowLend, placeholder
-  const [placeholderTitle, setPlaceholderTitle] = useState("");
+  const [subView, setSubView] = useState("overview"); // overview, transactions, wallets, budgets, borrowLend, subscriptions, splits
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Form states
@@ -211,30 +211,10 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
     });
   };
 
-  // AI Insights Generator (Local smart engine + Cloud Function ready)
-  const generateAiInsights = async () => {
-    setInsightsLoading(true);
-    // Synthetic analysis grounded in real data
-    setTimeout(() => {
-      const topCat = [...byCat].sort((a, b) => b.value - a.value)[0];
-      const avgSpent = (thisMonthSpent / (new Date().getDate() || 1)).toFixed(0);
-
-      setAiInsights({
-        generatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        summary: `Your spending this month is ₹${thisMonthSpent}. On average, you spend ₹${avgSpent}/day.`,
-        categoryCreep: topCat ? `Highest category is ${topCat.name} at ₹${topCat.value} (${Math.round((topCat.value / (thisMonthSpent || 1)) * 100)}% of expenses).` : "No expenses logged this month.",
-        suggestions: [
-          topCat ? `Consider setting a ₹${Math.round(topCat.value * 0.85)} budget limit on ${topCat.name} to save ~15%.` : "Track daily transactions to unlock predictive insights.",
-          "Keep your Cash wallet updated for accurate liquid net worth.",
-          "The summary covers logged transactions only, not your bank’s live balance."
-        ]
-      });
-      setInsightsLoading(false);
-    }, 800);
-  };
+  const generateAiInsights = () => onAskAssistant?.('Analyze my recorded spending this month, explain patterns, and suggest realistic category budgets. Do not change anything yet.');
 
   return (
-    <Screen t={t} title="Budget & Wealth">
+    <Screen t={t} title="Budget & Wealth" right={<GhostButton t={t} onClick={generateAiInsights}><Sparkles size={16}/> Ask Gemini</GhostButton>}>
       <div style={{ maxWidth: 1040, margin: "0 auto" }}>
 
         {/* Secondary Sub-navigation matching Hisaabat */}
@@ -245,7 +225,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
               ["transactions", "Transactions"],
               ["wallets", "Wallets"],
               ["budgets", "Budgets"],
-              ["borrowLend", "Borrow / Lend"]
+              ["borrowLend", "Borrow / Lend"], ["subscriptions", "Subscriptions"], ["splits", "Bill splits"]
             ].map(([k, label]) => (
               <button
                 key={k}
@@ -657,19 +637,7 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
           </div>
         )}
 
-        {/* ================= PLACEHOLDER SCREENS ================= */}
-        {subView === "placeholder" && (
-          <Card t={t} style={{ textAlign: "center", padding: 40 }}>
-            <Sparkles size={36} color={t.a1} style={{ margin: "0 auto 12px" }} />
-            <h2 style={{ fontSize: 18, color: t.text, margin: "0 0 6px" }}>{placeholderTitle}</h2>
-            <div style={{ fontSize: 13, color: t.muted, maxWidth: 360, margin: "0 auto 18px" }}>
-              This feature is scheduled for an upcoming update. The navigation slot is ready!
-            </div>
-            <PrimaryButton t={t} onClick={() => setSubView("overview")} style={{ width: "auto", padding: "8px 18px" }}>
-              Back to Budget Overview
-            </PrimaryButton>
-          </Card>
-        )}
+        {['subscriptions','splits'].includes(subView)&&<BudgetTools key={subView} t={t} userId={userId} mode={subView} subscriptions={subscriptions} billSplits={billSplits} onAskAssistant={onAskAssistant}/>}
 
         {/* ================= MODALS ================= */}
 
@@ -952,8 +920,8 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 <button type="button" onClick={() => { setSubView("overview"); setMenuOpen(false); generateAiInsights(); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Spending Summary</span> <Sparkles size={14} color={t.a1} />
                 </button>
-                <button type="button" onClick={() => { setPlaceholderTitle("AI Purchase Advisor"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
-                  <span>Purchase Advisor</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
+                <button type="button" onClick={() => { onAskAssistant?.('Help me decide whether I can afford a purchase. Ask me what I want to buy and its price, then use my recorded budget.'); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                  <span>Purchase Advisor</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Open</span>
                 </button>
               </div>
 
@@ -965,8 +933,8 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 <button type="button" onClick={() => { setSubView("budgets"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Category Budgets & Targets</span> <ArrowRight size={14} color={t.muted} />
                 </button>
-                <button type="button" onClick={() => { setPlaceholderTitle("Recurring Transactions"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
-                  <span>Recurring Subscriptions</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
+                <button type="button" onClick={() => { setSubView("subscriptions"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                  <span>Recurring Subscriptions</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Open</span>
                 </button>
               </div>
 
@@ -978,8 +946,8 @@ export default function BudgetScreen({ t, tx = [], userId, wallets = [], categor
                 <button type="button" onClick={() => { setSubView("borrowLend"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
                   <span>Borrow & Lend (Debt Tracker)</span> <ArrowRight size={14} color={t.muted} />
                 </button>
-                <button type="button" onClick={() => { setPlaceholderTitle("Bill Splits"); setSubView("placeholder"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
-                  <span>Bill Splits with Friends</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Coming Soon</span>
+                <button type="button" onClick={() => { setSubView("splits"); setMenuOpen(false); }} className="press card-hover" style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },  padding: 10, background: t.surface2, borderRadius: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", color: t.text, fontSize: 13 }}>
+                  <span>Bill Splits with Friends</span> <span style={{ fontSize: 10, color: t.muted, background: t.surface, padding: "2px 6px", borderRadius: 4 }}>Open</span>
                 </button>
               </div>
             </Card>

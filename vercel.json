@@ -11,7 +11,7 @@
   ],
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "{server/**,src/assistant/planner.js,src/utils/**}",
+      "includeFiles": "{server/**,src/assistant/**,src/utils/**}",
       "maxDuration": 60
     }
   }

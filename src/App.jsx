@@ -1,3 +1,5 @@
+import AssistantPanel from './components/AssistantPanel';
+import {Modal,Card,IconBtn} from './components/primitives';
 import React, { useState, useEffect } from "react";
 import {
   Home, ListChecks, Moon, Wallet, BarChart3, Clock, User, LogOut, Sparkles, Sun, Settings,
@@ -27,6 +29,10 @@ import CopyrightFooter from "./components/CopyrightFooter";
 
 export default function App() {
   useLocalDay();
+  const [assistantOpen,setAssistantOpen]=useState(false);
+  const [assistantPrompt,setAssistantPrompt]=useState('');
+  const askAssistant=(prompt='')=>{setAssistantPrompt(prompt);setAssistantOpen(true);};
+  const [subscriptions,setSubscriptions]=useState([]),[billSplits,setBillSplits]=useState([]);
   const [pushNotice, setPushNotice] = useState("");
   const [healthView, setHealthView] = useState("goals");
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
@@ -114,6 +120,8 @@ export default function App() {
       watchCollection(uid, "wallets", setWallets),
       watchCollection(uid, "categoryBudgets", setCategoryBudgets),
       watchCollection(uid, "loans", setLoans),
+      watchCollection(uid, "subscriptions", setSubscriptions),
+      watchCollection(uid, "billSplits", setBillSplits),
       watchCollection(uid, "bodyMetrics", setBodyMetrics, "date")
     ];
     return () => unsubs.forEach(fn => fn && fn());
@@ -122,11 +130,13 @@ export default function App() {
   const handleLogout = async () => {
     await disableReminders(user).catch(() => {});
     await logout();
+    setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
     setTasks([]); setSleep([]); setWorkouts([]); setMeals([]);
     setTx([]); setBlocks([]); setWallets([]); setCategoryBudgets([]); setLoans([]); setBodyMetrics([]);
     setTab("home");
   };
 
+  const assistantData={tasks,blocks,sleep,tx,workouts,wallets,categoryBudgets,subscriptions,billSplits,loans};
   const displayName = user ? (user.displayName || user.email?.split("@")[0] || "User") : "";
 
   // Pro navigation items for desktop sidebar & mobile
@@ -197,6 +207,7 @@ export default function App() {
           }
         `}</style>
 
+        {assistantOpen&&<Modal title="Ask Gemini" onClose={()=>setAssistantOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:150,display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><Card t={t} style={{width:'100%',maxWidth:720,maxHeight:'90vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><strong>Gemini · {tab}</strong><IconBtn t={t} label="Close assistant" onClick={()=>setAssistantOpen(false)}>×</IconBtn></div><AssistantPanel key={user.uid} t={t} user={user} data={assistantData} page={tab} initialPrompt={assistantPrompt}/></Card></Modal>}
         {/* Global Command Palette Spotlight (Ctrl+K) */}
         <CommandPalette
           isOpen={isCommandPaletteOpen}
@@ -373,6 +384,7 @@ export default function App() {
             </div>
 
             <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button aria-label="Ask Gemini" title="Ask Gemini about this screen" className="press" onClick={()=>askAssistant()} style={{border:`1px solid ${t.line}`,background:t.surface2,color:t.a1,borderRadius:12,padding:10}}><MessageCircle size={20}/></button>
               {/* Spotlight search pill */}
               <button
                 onClick={() => setIsCommandPaletteOpen(true)}
@@ -464,7 +476,7 @@ export default function App() {
           {/* Scrollable View Content */}
           <main className="main-content" style={{ flex: 1, overflowY: "auto", position: "relative" }}>
             {pushNotice && <div role="status" style={{padding:12,background:t.surface2}}>{pushNotice} <button className="link-button" onClick={() => { setPushNotice(""); setTab("timetable"); }}>View timetable</button><button className="link-button" onClick={() => setPushNotice("")}>Dismiss</button></div>}
-            {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} tasks={tasks} blocks={blocks} sleep={sleep} tx={tx} workouts={workouts} setTab={setTab} />}
+            {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
             {tab === "home" && (
               <Dashboard
                 t={t}
@@ -538,6 +550,9 @@ export default function App() {
                 wallets={wallets}
                 categoryBudgets={categoryBudgets}
                 loans={loans}
+                subscriptions={subscriptions}
+                billSplits={billSplits}
+                onAskAssistant={askAssistant}
               />
             )}
 
