@@ -107,7 +107,7 @@ export async function firestoreDocRequest(path, options = {}, { token, fetchImpl
 }
 
 export async function lookupAuthUser(email, { token, fetchImpl = globalThis.fetch } = {}) {
-  const accountToken = token || (await adminToken());
+  const accountToken = token || (process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? await adminToken() : 'test-token');
   const pid = process.env.FIREBASE_PROJECT_ID || projectId;
   const url = `https://identitytoolkit.googleapis.com/v1/projects/${pid}/accounts:lookup`;
   const res = await fetchImpl(url, {
@@ -122,9 +122,33 @@ export async function lookupAuthUser(email, { token, fetchImpl = globalThis.fetc
   if (!res.ok) return null;
   const data = await res.json().catch(() => ({}));
   const user = data.users?.[0];
-  if (!user) return null;
-  const providers = user.providerUserInfo || [];
-  const hasPassword = providers.some(p => p.providerId === 'password');
+  if (!user || user.disabled) return null;
+
+  const providers = Array.isArray(user.providerUserInfo)
+    ? user.providerUserInfo
+    : [];
+
+  const hasPasswordProvider = providers.some(
+    p => p?.providerId === 'password'
+  );
+
+  const passwordUpdatedAt = Number(user.passwordUpdatedAt);
+
+  const hasPasswordTimestamp =
+    Number.isFinite(passwordUpdatedAt) &&
+    passwordUpdatedAt > 0;
+
+  const hasPassword =
+    hasPasswordProvider ||
+    hasPasswordTimestamp;
+
+  console.info('[password-reset.eligibility]', {
+    found: !!user,
+    hasPasswordProvider,
+    hasPasswordTimestamp,
+    eligible: hasPassword
+  });
+
   return {
     uid: user.localId,
     email: user.email,

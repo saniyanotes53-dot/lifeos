@@ -7,6 +7,7 @@ import {
   hashResetToken,
   safeCompare,
   renderOTPEmail,
+  lookupAuthUser,
   requestPasswordReset,
   verifyPasswordReset,
   confirmPasswordReset
@@ -392,4 +393,186 @@ test('old Firebase reset-link API is not called and requestPasswordResetOTP uses
     globalThis.fetch = originalFetch;
   }
 });
+
+test('TEST 1: lookupAuthUser - providerUserInfo explicitly contains password', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'uid-password',
+        email: 'password@example.com',
+        providerUserInfo: [
+          { providerId: 'password' }
+        ]
+      }]
+    })
+  });
+
+  const res = await lookupAuthUser('password@example.com', { token: 'test-token', fetchImpl });
+  assert.ok(res);
+  assert.equal(res.uid, 'uid-password');
+  assert.equal(res.email, 'password@example.com');
+  assert.equal(res.hasPassword, true);
+});
+
+test('TEST 2 — IMPORTANT REGRESSION: lookupAuthUser - providerUserInfo does NOT contain password, but passwordUpdatedAt exists', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'uid-password-timestamp',
+        email: 'legacy@example.com',
+        providerUserInfo: [],
+        passwordUpdatedAt: '1789380000000'
+      }]
+    })
+  });
+
+  const res = await lookupAuthUser('legacy@example.com', { token: 'test-token', fetchImpl });
+  assert.ok(res);
+  assert.equal(res.uid, 'uid-password-timestamp');
+  assert.equal(res.email, 'legacy@example.com');
+  assert.equal(res.hasPassword, true);
+});
+
+test('TEST 3: lookupAuthUser - Google-only account without password credential', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'uid-google',
+        email: 'google@example.com',
+        providerUserInfo: [
+          { providerId: 'google.com' }
+        ]
+      }]
+    })
+  });
+
+  const res = await lookupAuthUser('google@example.com', { token: 'test-token', fetchImpl });
+  assert.ok(res);
+  assert.equal(res.uid, 'uid-google');
+  assert.equal(res.email, 'google@example.com');
+  assert.equal(res.hasPassword, false);
+});
+
+test('TEST 4: lookupAuthUser - Account has Google + password', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'uid-google-password',
+        email: 'dual@example.com',
+        providerUserInfo: [
+          { providerId: 'google.com' },
+          { providerId: 'password' }
+        ]
+      }]
+    })
+  });
+
+  const res = await lookupAuthUser('dual@example.com', { token: 'test-token', fetchImpl });
+  assert.ok(res);
+  assert.equal(res.uid, 'uid-google-password');
+  assert.equal(res.email, 'dual@example.com');
+  assert.equal(res.hasPassword, true);
+});
+
+test('TEST 5: lookupAuthUser - Disabled account returns null', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'disabled',
+        email: 'disabled@example.com',
+        disabled: true,
+        passwordUpdatedAt: '1789380000000'
+      }]
+    })
+  });
+
+  const res = await lookupAuthUser('disabled@example.com', { token: 'test-token', fetchImpl });
+  assert.equal(res, null);
+});
+
+test('requestPasswordReset dispatches OTP for legacy password account (passwordUpdatedAt) but suppresses for Google-only and disabled', async () => {
+  const store = new Map();
+  const db = {
+    get: async path => store.get(path) || null,
+    set: async (path, data) => store.set(path, data)
+  };
+  let sentEmail = null;
+  const sendEmail = async payload => { sentEmail = payload; };
+
+  // 1. Legacy password account with passwordUpdatedAt
+  const legacyFetch = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'legacy_uid',
+        email: 'legacy@example.com',
+        providerUserInfo: [],
+        passwordUpdatedAt: '1789380000000'
+      }]
+    })
+  });
+  const resLegacy = await requestPasswordReset('legacy@example.com', {
+    secret: TEST_SECRET,
+    db,
+    lookupUser: email => lookupAuthUser(email, { token: 'test-token', fetchImpl: legacyFetch }),
+    sendEmail,
+    skipRateLimit: true
+  });
+  assert.equal(resLegacy.ok, true);
+  assert.ok(sentEmail);
+  assert.equal(sentEmail.to, 'legacy@example.com');
+
+  // Reset sentEmail
+  sentEmail = null;
+
+  // 2. Google-only account
+  const googleFetch = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'google_uid',
+        email: 'google@example.com',
+        providerUserInfo: [{ providerId: 'google.com' }]
+      }]
+    })
+  });
+  const resGoogle = await requestPasswordReset('google@example.com', {
+    secret: TEST_SECRET,
+    db,
+    lookupUser: email => lookupAuthUser(email, { token: 'test-token', fetchImpl: googleFetch }),
+    sendEmail,
+    skipRateLimit: true
+  });
+  assert.equal(resGoogle.ok, true);
+  assert.equal(sentEmail, null);
+
+  // 3. Disabled account
+  const disabledFetch = async () => ({
+    ok: true,
+    json: async () => ({
+      users: [{
+        localId: 'disabled_uid',
+        email: 'disabled@example.com',
+        disabled: true,
+        passwordUpdatedAt: '1789380000000'
+      }]
+    })
+  });
+  const resDisabled = await requestPasswordReset('disabled@example.com', {
+    secret: TEST_SECRET,
+    db,
+    lookupUser: email => lookupAuthUser(email, { token: 'test-token', fetchImpl: disabledFetch }),
+    sendEmail,
+    skipRateLimit: true
+  });
+  assert.equal(resDisabled.ok, true);
+  assert.equal(sentEmail, null);
+});
+
+
 
