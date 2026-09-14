@@ -59,6 +59,11 @@ def deliver_email(payload, smtp_factory=smtplib.SMTP_SSL):
         raise ValueError('Missing delivery identifier.')
     message['Message-ID'] = f'<{key}@lifeos53.vercel.app>'
     message.set_content(body)
+    html = payload.get('html')
+    if html is not None:
+        if not isinstance(html, str) or not html.strip() or len(html) > 12000:
+            raise ValueError('Invalid HTML email content.')
+        message.add_alternative(html, subtype='html')
     with smtp_factory('smtp.gmail.com', 465, context=ssl.create_default_context(), timeout=12) as smtp:
         smtp.login(sender, os.environ['GMAIL_APP_PASSWORD'].replace(' ', ''))
         smtp.send_message(message)
@@ -112,7 +117,7 @@ class handler(BaseHTTPRequestHandler):
             return self.respond(401, {'error': 'Unauthorized'})
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 16000:
+            if not 0 < length <= 32768:
                 return self.respond(413, {'error': 'Invalid request size.'})
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):

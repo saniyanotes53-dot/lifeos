@@ -9,6 +9,7 @@ import { inputStyle, todayStr, dayName } from "../theme";
 import { Card, Screen, Empty, Segmented, PrimaryButton } from "./primitives";
 import { addItem, deleteItem, updateItem } from "../firestore";
 import { enableReminders, disableReminders, remindersEnabled } from "../notifications";
+import { getPushState, registerPush, unregisterPush } from "../cloud-notifications";
 
 export default function TimetableScreen({ t, blocks = [], tasks = [], userId, user }) {
   const [view, setView] = useState("day"); // "day" or "week"
@@ -17,13 +18,25 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
   const [label, setLabel] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [remindersOn, setRemindersOn] = useState(() => remindersEnabled(userId));
-  useEffect(() => {
-    const update = () => setRemindersOn(remindersEnabled(userId));
-    update();window.addEventListener('lifeos-reminders-change', update);
-    return () => window.removeEventListener('lifeos-reminders-change', update);
-  }, [userId]);
+  const [pushState, setPushState] = useState(() => getPushState(userId));
   const [pushError, setPushError] = useState("");
   const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      setRemindersOn(remindersEnabled(userId));
+      setPushState(getPushState(userId));
+    };
+    update();
+    window.addEventListener('lifeos-reminders-change', update);
+    window.addEventListener('lifeos-push-status-change', update);
+    window.addEventListener('focus', update);
+    return () => {
+      window.removeEventListener('lifeos-reminders-change', update);
+      window.removeEventListener('lifeos-push-status-change', update);
+      window.removeEventListener('focus', update);
+    };
+  }, [userId]);
 
   // Date navigation helpers
   const changeDay = (delta) => {
@@ -32,11 +45,39 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
 
   const weekDates = getWeekDates(selectedDate);
 
-  const requestPerm = async () => {
+  const handleEnablePush = async () => {
     setPushLoading(true);
+    setPushError("");
     try {
-      setPushError("");
-      if(remindersOn)await disableReminders(user);
+      await registerPush(user);
+      await enableReminders(user);
+      setPushState(getPushState(userId));
+    } catch (e) {
+      setPushError(e.message);
+      setPushState(getPushState(userId));
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setPushLoading(true);
+    setPushError("");
+    try {
+      await unregisterPush(user);
+      setPushState(getPushState(userId));
+    } catch (e) {
+      setPushError(e.message);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const toggleInAppReminders = async () => {
+    setPushLoading(true);
+    setPushError("");
+    try {
+      if (remindersOn) await disableReminders(user);
       else await enableReminders(user);
     } catch (e) {
       setPushError(e.message);

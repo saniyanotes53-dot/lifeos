@@ -27,7 +27,8 @@ Copy the values into Vercel → **lifeos** → Settings → Environment Variable
 | `WEB_PUSH_PRIVATE_KEY` | Secret |
 | `WEB_PUSH_CONTACT` | Config (`mailto:your-address@gmail.com`) |
 | `CRON_SECRET` | Secret |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret; existing project `lifeos-61443`, Firestore read/write permission |
+| `PASSWORD_RESET_SECRET` | Secret; at least 32 random characters for HMAC hashing of OTPs and reset tokens |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Secret; existing project `lifeos-61443`, Firestore read/write and Auth access |
 | `NOTIFICATION_SCHEDULER_ENABLED` | Config: `true` after scheduler setup |
 | `REMINDER_EMAILS_ENABLED` | Config: `true` if daily loan/split emails are wanted |
 
@@ -53,11 +54,12 @@ The trigger runs the due-reminder endpoint every minute. The daily job runs once
 - Schedule a real task a few minutes ahead. Check Apps Script Executions, Gmail Sent, inbox/spam, and Chrome notifications with the tab closed.
 - If Gmail rejects SMTP, inspect the sanitized failure class in Vercel logs, then check 2-Step Verification, app password, sender address and account sending limits. Do not paste private keys, app passwords or authentication tokens into logs/issues/chat.
 
-## Google/email sign-in and password resets
+## Google/email sign-in, password resets, and welcome email
 
-Google sign-in uses OAuth; an SMTP app password cannot activate it. The existing site already uses Firebase's Google and email/password sign-in code. Those providers must be enabled in Firebase Authentication and the site's domain authorized. This update preserves those accounts and authentication flows.
+Google sign-in and email/password accounts continue using Firebase Authentication as the backend.
 
-Password reset/verification emails remain Firebase Auth emails. The new SMTP reminder sender does not automatically replace their secure link-generation flow. Welcome templates exist but automatic welcome delivery is not enabled by this change.
+- **Password reset**: Completely replaces Firebase reset links with a secure 6-digit verification code (OTP) sent via Gmail SMTP. Codes expire in 10 minutes, have a 5-attempt limit and 60s cooldown. Reset occurs entirely inside Life OS; Firebase password reset links are not used. The backend updates the Firebase Auth password securely using `FIREBASE_SERVICE_ACCOUNT_JSON` and `PASSWORD_RESET_SECRET`.
+- **Welcome email**: Sent once to genuinely new users via Gmail SMTP upon email registration or first-time Google account creation. Duplicate delivery is prevented by atomic Firestore receipts. Returning Google sign-ins do not receive welcome emails.
 
 ## Reliability boundaries
 

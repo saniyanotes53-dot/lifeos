@@ -11,7 +11,7 @@
   ],
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "{server/**,src/assistant/**,src/utils/**}",
+      "includeFiles": "{server/**,src/assistant/**,src/utils/**,email-templates/**}",
       "maxDuration": 60
     },
     "api/**/*.py": {

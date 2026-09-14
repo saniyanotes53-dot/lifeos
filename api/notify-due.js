@@ -1,8 +1,60 @@
 import {smtpReady,webPushReady,transport} from '../server/delivery.js';
 import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {adminToken,decode} from '../server/reminder-mail.js';
 import {cloudReady,dbRequest,readRecord,dueBlocks,isDue} from '../server/push-delivery.js';
+
 const hash=value=>createHash('sha256').update(value).digest('hex');
+
+const reminderTemplate = readFileSync(
+  new URL('../email-templates/reminder.html', import.meta.url),
+  'utf8'
+);
+
+export const escapeHtml = value => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
+export function renderReminderHtml({ task, time, date, url }) {
+  return reminderTemplate
+    .replaceAll('{{TASK}}', escapeHtml(task))
+    .replaceAll('{{TIME}}', escapeHtml(time))
+    .replaceAll('{{DATE}}', escapeHtml(date))
+    .replaceAll('{{TIMETABLE_URL}}', url);
+}
+
+export function formatReminderDate(remindAt, timeZone) {
+  const timestamp = Number(remindAt);
+  const date = Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp) : new Date();
+  let zone = 'Asia/Kolkata';
+  if (timeZone && typeof timeZone === 'string') {
+    try {
+      new Intl.DateTimeFormat('en-IN', { timeZone }).format(date);
+      zone = timeZone;
+    } catch {
+      zone = 'Asia/Kolkata';
+    }
+  }
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: zone,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    }).format(date);
+  }
+}
+
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.query?.status==='1')return res.json({vapidKey:process.env.WEB_PUSH_PUBLIC_KEY||'',pushConfigured:cloudReady()&&webPushReady(),emailConfigured:cloudReady()&&smtpReady(),schedulerEnabled:cloudReady()&&process.env.NOTIFICATION_SCHEDULER_ENABLED==='true'});
@@ -28,7 +80,27 @@ export default async function handler(req,res){
      if(job.channel==='push'){
       const sent=await transport({channel:'push',subscription:job.subscription,body,tag:key});if(sent.expired){await dbRequest(token,base+'/pushSubscriptions/'+encodeURIComponent(job.id),{method:'DELETE'});continue;}
      }else{
-      await transport({channel:'email',to:job.email,idempotencyKey:key,subject:'Life OS · scheduled reminder',text:body+'\n\nOpen your timetable: https://lifeos53.vercel.app/?view=timetable\nTurn off email reminders in Profile → Notifications.'});
+      const label = String(block.label || 'Scheduled task').slice(0, 200);
+      const timetableUrl = 'https://lifeos53.vercel.app/?view=timetable';
+      const dateLabel = formatReminderDate(block.remindAt, prefs?.timeZone);
+      const html = renderReminderHtml({
+        task: label,
+        time: block.time || '',
+        date: dateLabel,
+        url: timetableUrl
+      });
+      const cleanSubjectLabel = label.replace(/[\r\n]+/g, ' ').trim().slice(0, 120);
+      await transport({
+        channel: 'email',
+        to: job.email,
+        idempotencyKey: key,
+        subject: `Life OS · ${cleanSubjectLabel || 'scheduled reminder'}`,
+        text:
+          `${block.time} · ${label}\n\n` +
+          `Open your timetable: ${timetableUrl}\n\n` +
+          `Turn off email reminders in Profile → Notifications.`,
+        html
+      });
      }
      accepted++;
     }catch(error){await dbRequest(token,receipt,{method:'DELETE'});throw error;}

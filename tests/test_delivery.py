@@ -28,6 +28,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_gmail_uses_tls_and_fixed_sender(self):
         calls = []
+        messages = []
         class SMTP:
             def __init__(self, host, port, **kwargs):
                 self_test.assertEqual((host, port), ('smtp.gmail.com', 465))
@@ -38,11 +39,47 @@ class DeliveryTests(unittest.TestCase):
             def send_message(self, message):
                 self_test.assertEqual(message['To'], 'recipient@example.com')
                 self_test.assertEqual(message['From'], 'Life OS <sender@gmail.com>')
+                messages.append(message)
         self_test = self
         with patch.dict(os.environ, {'GMAIL_ADDRESS': 'sender@gmail.com', 'GMAIL_APP_PASSWORD': 'test password'}):
-            result = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test only', 'idempotencyKey': 'a'*64}, SMTP)
-        self.assertEqual(result, {'accepted': True})
-        self.assertEqual(calls, [('sender@gmail.com', 'testpassword')])
+            # 1. plain-text only email accepted
+            result1 = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test only', 'idempotencyKey': 'a'*64}, SMTP)
+            self.assertEqual(result1, {'accepted': True})
+            self.assertFalse(messages[0].is_multipart())
+            self.assertEqual(messages[0].get_content().strip(), 'Test only')
+
+            # 2. text + html accepted (multipart/alternative)
+            result2 = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test only', 'html': '<p>HTML test</p>', 'idempotencyKey': 'b'*64}, SMTP)
+            self.assertEqual(result2, {'accepted': True})
+            self.assertTrue(messages[1].is_multipart())
+            parts = list(messages[1].iter_parts())
+            self.assertEqual(len(parts), 2)
+            self.assertEqual(parts[0].get_content_type(), 'text/plain')
+            self.assertEqual(parts[1].get_content_type(), 'text/html')
+        self.assertEqual(calls, [('sender@gmail.com', 'testpassword'), ('sender@gmail.com', 'testpassword')])
+
+    def test_gmail_html_validation(self):
+        class SMTP:
+            def __init__(self, *args, **kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def login(self, *args): pass
+            def send_message(self, *args): pass
+
+        with patch.dict(os.environ, {'GMAIL_ADDRESS': 'sender@gmail.com', 'GMAIL_APP_PASSWORD': 'test password'}):
+            # 3. malformed/non-string or empty HTML rejected
+            for bad_html in [123, True, [], {}, '', '   ', '\n\t']:
+                with self.assertRaises(ValueError, msg=f"Should reject {bad_html!r}"):
+                    delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test', 'html': bad_html, 'idempotencyKey': 'a'*64}, SMTP)
+
+            # 4. excessive HTML size (>12000) rejected
+            with self.assertRaises(ValueError):
+                delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test', 'html': '<p>' + 'a'*12000 + '</p>', 'idempotencyKey': 'a'*64}, SMTP)
+
+            # HTML within 12000 accepted
+            valid_long_html = '<p>' + 'a'*11990 + '</p>'
+            result = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test', 'html': valid_long_html, 'idempotencyKey': 'c'*64}, SMTP)
+            self.assertEqual(result, {'accepted': True})
 
     def test_real_webpush_encryption_without_network(self):
         encode = lambda value: base64.urlsafe_b64encode(value).decode().rstrip('=')

@@ -3,11 +3,10 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
 import { PALETTES, inputStyle } from "../theme";
 import { Card, Screen, PrimaryButton, GhostButton, SectionLabel } from "./primitives";
-import { resetPassword } from "../auth";
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { requestPasswordResetOTP, verifyPasswordResetOTP, confirmPasswordReset } from "../auth";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEmailVerification } from "firebase/auth";
 import { auth } from "../firebase";
-import {sendEmailVerification} from "firebase/auth";
-import {enableReminders,disableReminders,remindersEnabled,enableBrowserAlerts,disableBrowserAlerts,browserAlertsEnabled} from "../notifications";
+import { enableReminders, disableReminders, remindersEnabled, enableBrowserAlerts, disableBrowserAlerts, browserAlertsEnabled } from "../notifications";
 
 export default function ProfileScreen({ t, user, theme, setTheme, scheme, setScheme, onLogout, onOpenGuide }) {
   const [newPassword, setNewPassword] = useState("");
@@ -15,42 +14,164 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
   const [pwMsg, setPwMsg] = useState("");
   const [pwLoading, setPwLoading] = useState(false);
 
-  const [reminders,setReminders]=useState(()=>remindersEnabled(user.uid));
-  const [browserAlerts,setBrowserAlerts]=useState(()=>browserAlertsEnabled(user.uid));
-  const [notice,setNotice]=useState(''),[notificationBusy,setNotificationBusy]=useState(false);
-  useEffect(()=>{const update=()=>{setReminders(remindersEnabled(user.uid));setBrowserAlerts(browserAlertsEnabled(user.uid));};window.addEventListener('lifeos-reminders-change',update);return()=>window.removeEventListener('lifeos-reminders-change',update);},[user.uid]);
-  async function reminderChange(){setNotificationBusy(true);try{if(reminders)await disableReminders(user);else await enableReminders(user);}catch(e){setNotice(e.message);}finally{setNotificationBusy(false);}}
-  async function alertChange(){setNotificationBusy(true);try{if(browserAlerts){disableBrowserAlerts(user.uid);setBrowserAlerts(false);}else {await enableBrowserAlerts(user);setBrowserAlerts(true);}}catch(e){setNotice(e.message);}finally{setNotificationBusy(false);}}
-  async function sendAccountEmail(kind){setPwLoading(true);setPwMsg('');try{if(kind==='reset')await resetPassword(user.email);else await sendEmailVerification(auth.currentUser);setPwMsg('Email requested. Check Inbox and Spam, and use the newest link.');}catch(e){setPwMsg(e.code==='auth/too-many-requests'?'Please wait a few minutes before requesting another email.':e.message);}finally{setPwLoading(false);}}
+  // OTP recovery mode within profile
+  const [otpMode, setOtpMode] = useState(false); // false | true
+  const [otpStep, setOtpStep] = useState(1); // 1 = enter code, 2 = enter new password
+  const [otpCode, setOtpCode] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [otpNewPassword, setOtpNewPassword] = useState("");
+  const [otpConfirmPassword, setOtpConfirmPassword] = useState("");
+
+  const [reminders, setReminders] = useState(() => remindersEnabled(user.uid));
+  const [browserAlerts, setBrowserAlerts] = useState(() => browserAlertsEnabled(user.uid));
+  const [notice, setNotice] = useState("");
+  const [notificationBusy, setNotificationBusy] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      setReminders(remindersEnabled(user.uid));
+      setBrowserAlerts(browserAlertsEnabled(user.uid));
+    };
+    window.addEventListener('lifeos-reminders-change', update);
+    return () => window.removeEventListener('lifeos-reminders-change', update);
+  }, [user.uid]);
+
+  async function reminderChange() {
+    setNotificationBusy(true);
+    try {
+      if (reminders) await disableReminders(user);
+      else await enableReminders(user);
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function alertChange() {
+    setNotificationBusy(true);
+    try {
+      if (browserAlerts) {
+        disableBrowserAlerts(user.uid);
+        setBrowserAlerts(false);
+      } else {
+        await enableBrowserAlerts(user);
+        setBrowserAlerts(true);
+      }
+    } catch (e) {
+      setNotice(e.message);
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function sendAccountEmail(kind) {
+    setPwLoading(true);
+    setPwMsg('');
+    try {
+      if (kind === 'verify') {
+        await sendEmailVerification(auth.currentUser);
+        setPwMsg('Verification email sent. Check Inbox and Spam, and use the newest link.');
+      }
+    } catch (e) {
+      setPwMsg(e.code === 'auth/too-many-requests' ? 'Please wait a few minutes before requesting another email.' : e.message);
+    } finally {
+      setPwLoading(false);
+    }
+  }
 
   const handleUpdatePassword = async () => {
     setPwMsg("");
-    if (!newPassword || newPassword.length < 6) {
-      setPwMsg("Password must be at least 6 characters.");
+    if (!newPassword || newPassword.length < 8) {
+      setPwMsg("Password must be at least 8 characters.");
       return;
     }
     if (!user || !user.email) return;
 
+    if (!currentPassword) {
+      setPwMsg("Please enter your current password, or click 'Reset with verification code' below.");
+      return;
+    }
+
     try {
       setPwLoading(true);
-      if (currentPassword) {
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(auth.currentUser, credential);
-        await updatePassword(auth.currentUser, newPassword);
-        setPwMsg("Password updated successfully!");
-        setNewPassword("");
-        setCurrentPassword("");
-      } else {
-        // Fallback: send password reset email
-        await resetPassword(user.email);
-        setPwMsg(`A password reset link was sent to ${user.email}.`);
-      }
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, newPassword);
+      setPwMsg("Password updated successfully!");
+      setNewPassword("");
+      setCurrentPassword("");
     } catch (e) {
-      if (e.code === "auth/requires-recent-login") {
-        setPwMsg("Please enter your current password to verify your identity.");
+      if (e.code === "auth/requires-recent-login" || e.code === "auth/wrong-password" || e.code === "auth/invalid-credential") {
+        setPwMsg("Incorrect current password. If forgotten, use 'Reset with verification code' below.");
       } else {
         setPwMsg(e.message || "Failed to update password.");
       }
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const startOtpRecovery = async () => {
+    setPwMsg("");
+    setPwLoading(true);
+    try {
+      await requestPasswordResetOTP(user.email);
+      setOtpMode(true);
+      setOtpStep(1);
+      setOtpCode("");
+      setResetToken("");
+      setOtpNewPassword("");
+      setOtpConfirmPassword("");
+      setPwMsg(`Verification code sent to ${user.email}. Enter the 6-digit code below.`);
+    } catch (e) {
+      setPwMsg(e.message || "Could not request verification code.");
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const handleVerifyOtpInProfile = async () => {
+    setPwMsg("");
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setPwMsg("Enter the full 6-digit verification code.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const res = await verifyPasswordResetOTP(user.email, otpCode.trim());
+      if (!res.resetToken) throw new Error("Invalid verification response.");
+      setResetToken(res.resetToken);
+      setOtpStep(2);
+      setPwMsg("Code verified. Enter your new password below.");
+    } catch (e) {
+      setPwMsg(e.message || "That code is invalid or has expired.");
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const handleConfirmOtpNewPassword = async () => {
+    setPwMsg("");
+    if (!otpNewPassword || otpNewPassword.length < 8) {
+      setPwMsg("Password must be at least 8 characters.");
+      return;
+    }
+    if (otpNewPassword !== otpConfirmPassword) {
+      setPwMsg("Passwords do not match.");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await confirmPasswordReset(resetToken, otpNewPassword);
+      setPwMsg("Password updated successfully!");
+      setOtpMode(false);
+      setResetToken("");
+      setOtpCode("");
+      setOtpNewPassword("");
+      setOtpConfirmPassword("");
+    } catch (e) {
+      setPwMsg(e.message || "Failed to update password. Please try again.");
     } finally {
       setPwLoading(false);
     }
@@ -103,7 +224,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                     localStorage.setItem("lifeos_scheme", key);
                   }}
                   className="press card-hover"
-                  style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
+                  style={{
                     padding: "14px 12px", borderRadius: 14,
                     background: isSelected ? t.surface2 : "transparent",
                     border: `2px solid ${isSelected ? t.a1 : t.line}`,
@@ -138,7 +259,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
                 localStorage.setItem("lifeos_theme", nextMode);
               }}
               className="press"
-              style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
+              style={{
                 display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
                 borderRadius: 12, background: t.surface2, border: `1px solid ${t.line}`,
                 cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: t.text
@@ -156,40 +277,134 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 10 }}>
             Change Password
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <input aria-label="Current password (optional)"
-              type="password"
-              style={inputStyle(t)}
-              placeholder="Current password (optional)"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-            <input aria-label="New password (min 6 chars)"
-              type="password"
-              style={inputStyle(t)}
-              placeholder="New password (min 6 chars)"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </div>
-          {pwMsg && (
-            <div style={{ fontSize: 12, color: pwMsg.includes("success") || pwMsg.includes("sent") ? t.good : t.a1, marginBottom: 10 }}>
-              {pwMsg}
+
+          {!otpMode ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <input
+                  aria-label="Current password"
+                  type="password"
+                  style={inputStyle(t)}
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <input
+                  aria-label="New password (min 8 chars)"
+                  type="password"
+                  style={inputStyle(t)}
+                  placeholder="New password (min 8 chars)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              {pwMsg && (
+                <div style={{ fontSize: 12, color: pwMsg.includes("success") ? t.good : t.a1, marginBottom: 10 }}>
+                  {pwMsg}
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <PrimaryButton t={t} onClick={handleUpdatePassword} disabled={pwLoading} style={{ width: "auto", padding: "10px 18px", fontSize: 13 }}>
+                  {pwLoading ? "Updating…" : "Update Password"}
+                </PrimaryButton>
+                <button
+                  type="button"
+                  onClick={startOtpRecovery}
+                  disabled={pwLoading}
+                  className="link-button"
+                  style={{ fontSize: 13, color: t.a1, cursor: "pointer" }}
+                >
+                  Forgot current password? Reset with verification code
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ background: t.surface2, padding: 14, borderRadius: 12, border: `1px solid ${t.line}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 6 }}>
+                Password Reset via Verification Code
+              </div>
+
+              {otpStep === 1 && (
+                <div>
+                  <div style={{ fontSize: 12.5, color: t.muted, marginBottom: 10 }}>
+                    Enter the 6-digit verification code sent to <strong style={{ color: t.text }}>{email}</strong>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                    <input
+                      aria-label="6-digit verification code"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      style={{ ...inputStyle(t), width: 140, letterSpacing: 4, fontWeight: 700, fontSize: 16 }}
+                      placeholder="123456"
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    />
+                    <PrimaryButton t={t} onClick={handleVerifyOtpInProfile} disabled={pwLoading || otpCode.length !== 6} style={{ width: "auto", padding: "8px 16px", fontSize: 13 }}>
+                      {pwLoading ? "Verifying…" : "Verify Code"}
+                    </PrimaryButton>
+                    <GhostButton t={t} onClick={() => { setOtpMode(false); setPwMsg(""); }} style={{ width: "auto", padding: "8px 14px", fontSize: 13 }}>
+                      Cancel
+                    </GhostButton>
+                  </div>
+                </div>
+              )}
+
+              {otpStep === 2 && (
+                <div>
+                  <div style={{ fontSize: 12.5, color: t.muted, marginBottom: 10 }}>
+                    Code verified. Enter your new password (minimum 8 characters).
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                    <input
+                      aria-label="New password (min 8 chars)"
+                      type="password"
+                      style={inputStyle(t)}
+                      placeholder="New password (min 8 chars)"
+                      value={otpNewPassword}
+                      onChange={e => setOtpNewPassword(e.target.value)}
+                    />
+                    <input
+                      aria-label="Confirm new password"
+                      type="password"
+                      style={inputStyle(t)}
+                      placeholder="Confirm new password"
+                      value={otpConfirmPassword}
+                      onChange={e => setOtpConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <PrimaryButton t={t} onClick={handleConfirmOtpNewPassword} disabled={pwLoading} style={{ width: "auto", padding: "8px 16px", fontSize: 13 }}>
+                      {pwLoading ? "Updating…" : "Save New Password"}
+                    </PrimaryButton>
+                    <GhostButton t={t} onClick={() => { setOtpMode(false); setPwMsg(""); }} style={{ width: "auto", padding: "8px 14px", fontSize: 13 }}>
+                      Cancel
+                    </GhostButton>
+                  </div>
+                </div>
+              )}
+
+              {pwMsg && (
+                <div style={{ fontSize: 12, color: pwMsg.includes("success") ? t.good : t.a1, marginTop: 10 }}>
+                  {pwMsg}
+                </div>
+              )}
             </div>
           )}
-          <PrimaryButton t={t} onClick={handleUpdatePassword} disabled={pwLoading} style={{ width: "auto", padding: "10px 18px", fontSize: 13 }}>
-            {pwLoading ? "Updating..." : "Update Password"}
-          </PrimaryButton>
         </Card>
 
         <SectionLabel t={t} text="Email & Reminders" />
-        <Card t={t} style={{padding:18,display:'grid',gap:14}}>
-          <GhostButton t={t} disabled={pwLoading} onClick={()=>sendAccountEmail('reset')}>Send password reset email</GhostButton>
-          {!user.emailVerified&&<GhostButton t={t} disabled={pwLoading} onClick={()=>sendAccountEmail('verify')}>Send email verification</GhostButton>}
-          <label><input type="checkbox" checked={reminders} disabled={notificationBusy} onChange={reminderChange}/> Timetable reminders while Life OS is open</label>
-          <label><input type="checkbox" checked={browserAlerts} disabled={notificationBusy} onChange={alertChange}/> Show browser notifications for due reminders</label>
-          {notice&&<p role="status">{notice}</p>}
-          <p style={{fontSize:13,color:t.muted}}>The two controls above work while a Life OS tab is open. Use the background delivery controls below for email and closed-tab push.</p><CloudNotifications t={t} user={user}/>
+        <Card t={t} style={{ padding: 18, display: 'grid', gap: 14 }}>
+          {!user.emailVerified && (
+            <GhostButton t={t} disabled={pwLoading} onClick={() => sendAccountEmail('verify')}>
+              Send email verification
+            </GhostButton>
+          )}
+          <label><input type="checkbox" checked={reminders} disabled={notificationBusy} onChange={reminderChange} /> Timetable reminders while Life OS is open</label>
+          <label><input type="checkbox" checked={browserAlerts} disabled={notificationBusy} onChange={alertChange} /> Show browser notifications for due reminders</label>
+          {notice && <p role="status">{notice}</p>}
+          <p style={{ fontSize: 13, color: t.muted }}>The two controls above work while a Life OS tab is open. Use the background delivery controls below for email and closed-tab push.</p>
+          <CloudNotifications t={t} user={user} />
         </Card>
 
         {/* Help & Guide */}

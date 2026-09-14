@@ -9,10 +9,10 @@ export function reminderRecipients(collection,r){
  if(!transfers.length)return [];
  return rows.filter(p=>validEmail(r.emails?.[p.name])).map(p=>({email:r.emails[p.name],text:`${r.title}: ${p.name}'s share is ₹${p.amount.toFixed(2)}; already paid ₹${p.paid.toFixed(2)}. ${transfers.filter(d=>d.from===p.name||d.to===p.name).map(d=>`${d.from} owes ${d.to} ₹${d.amount.toFixed(2)}.`).join(' ')||'Your share is settled.'}`}));
 }
-export async function adminToken(){
+export async function adminToken(scope='https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/identitytoolkit'){
  const account=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
  if(account.project_id!=='lifeos-61443')throw Error('Wrong Firebase project in mail configuration.');
- const assertion=await new SignJWT({scope:'https://www.googleapis.com/auth/datastore'}).setProtectedHeader({alg:'RS256'}).setIssuer(account.client_email).setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('5m').sign(await importPKCS8(account.private_key,'RS256'));
+ const assertion=await new SignJWT({scope}).setProtectedHeader({alg:'RS256'}).setIssuer(account.client_email).setAudience('https://oauth2.googleapis.com/token').setIssuedAt().setExpirationTime('5m').sign(await importPKCS8(account.private_key,'RS256'));
  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}),signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw Error('Firebase mail credentials could not authenticate.');return (await response.json()).access_token;
 }

@@ -44,7 +44,7 @@ export default function AuthScreen({ t, onLogin }) {
       try {
         setLoading(true);
         await resetPassword(email);
-        setMsg("Password reset link sent to " + email + ". Check your inbox.");
+        setMsg("Verification code sent to " + email + ". Check your inbox.");
       } catch (e) {
         setMsg(formatAuthError(e));
       } finally {
@@ -124,7 +124,7 @@ export default function AuthScreen({ t, onLogin }) {
         {msg && <div style={{ fontSize: 12, color: t.a1, marginBottom: 12 }}>{msg}</div>}
 
         <PrimaryButton t={t} onClick={submit} disabled={loading} style={{ marginBottom: 10 }}>
-          {loading ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? "Create account" : "Send reset link"}
+          {loading ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? "Create account" : "Send verification code"}
         </PrimaryButton>
 
         {mode !== "reset" && (

@@ -1,1 +1,275 @@
-<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,sans-serif;color:#172039"><table role="presentation" width="100%" cellpadding="24"><tr><td align="center"><table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:18px" cellpadding="28"><tr><td><p style="color:#356de5;font-weight:bold;letter-spacing:2px">LIFE OS</p><h1 style="font-size:26px">A reminder for your day</h1><p style="line-height:1.7">You have a planned activity to review. Open your timetable to see the details or move it to a better time.</p><a href="https://lifeos53.vercel.app/?view=timetable" style="display:inline-block;background:#356de5;color:#fff;padding:14px 22px;border-radius:10px;text-decoration:none">Open my timetable</a><p style="font-size:12px;color:#667085;margin-top:28px">Manage reminder preferences in your Life OS profile.</p></td></tr></table></td></tr></table></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Life OS Reminder</title>
+</head>
+
+<body style="
+  margin:0;
+  padding:0;
+  background:#f7f5f4;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  color:#231f20;
+">
+
+  <div style="
+    display:none;
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    color:transparent;
+  ">
+    Your scheduled Life OS activity is due now.
+  </div>
+
+  <table
+    role="presentation"
+    width="100%"
+    cellspacing="0"
+    cellpadding="0"
+    border="0"
+    style="background:#f7f5f4;"
+  >
+    <tr>
+      <td align="center" style="padding:36px 16px;">
+
+        <table
+          role="presentation"
+          width="100%"
+          cellspacing="0"
+          cellpadding="0"
+          border="0"
+          style="
+            max-width:560px;
+            background:#ffffff;
+            border-radius:22px;
+            overflow:hidden;
+            border:1px solid #eee8e6;
+            box-shadow:0 10px 30px rgba(38,25,25,.06);
+          "
+        >
+
+          <tr>
+            <td style="
+              height:5px;
+              background:#d94b45;
+              font-size:0;
+              line-height:0;
+            ">
+              &nbsp;
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:34px 34px 30px;">
+
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+              >
+                <tr>
+                  <td>
+                    <div style="
+                      font-size:12px;
+                      font-weight:800;
+                      letter-spacing:2.4px;
+                      color:#d94b45;
+                    ">
+                      LIFE OS
+                    </div>
+                  </td>
+
+                  <td align="right">
+                    <span style="
+                      display:inline-block;
+                      padding:7px 11px;
+                      border-radius:999px;
+                      background:#fff1ef;
+                      color:#c7433e;
+                      font-size:11px;
+                      font-weight:700;
+                    ">
+                      REMINDER
+                    </span>
+                  </td>
+                </tr>
+              </table>
+
+              <h1 style="
+                margin:28px 0 8px;
+                font-family:Georgia,'Times New Roman',serif;
+                font-size:29px;
+                line-height:1.2;
+                font-weight:600;
+                color:#272020;
+              ">
+                It’s time.
+              </h1>
+
+              <p style="
+                margin:0 0 26px;
+                color:#7a6e6b;
+                font-size:14px;
+                line-height:1.7;
+              ">
+                Here’s what you scheduled in Life OS.
+              </p>
+
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="
+                  background:#fff7f5;
+                  border:1px solid #f4d9d5;
+                  border-radius:18px;
+                "
+              >
+                <tr>
+                  <td style="padding:22px 22px 20px;">
+
+                    <div style="
+                      font-size:12px;
+                      font-weight:700;
+                      letter-spacing:1.2px;
+                      color:#b96a65;
+                      text-transform:uppercase;
+                      margin-bottom:8px;
+                    ">
+                      {{DATE}}
+                    </div>
+
+                    <div style="
+                      font-size:25px;
+                      line-height:1.3;
+                      font-weight:700;
+                      color:#2c2423;
+                      margin-bottom:12px;
+                    ">
+                      {{TASK}}
+                    </div>
+
+                    <table
+                      role="presentation"
+                      cellspacing="0"
+                      cellpadding="0"
+                      border="0"
+                    >
+                      <tr>
+                        <td style="
+                          font-size:18px;
+                          font-weight:700;
+                          color:#d94b45;
+                          padding-right:8px;
+                        ">
+                          {{TIME}}
+                        </td>
+
+                        <td style="
+                          font-size:13px;
+                          color:#8c7d79;
+                        ">
+                          Scheduled now
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              <table
+                role="presentation"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+                style="margin-top:28px;"
+              >
+                <tr>
+                  <td
+                    align="center"
+                    bgcolor="#d94b45"
+                    style="border-radius:12px;"
+                  >
+                    <a
+                      href="{{TIMETABLE_URL}}"
+                      style="
+                        display:inline-block;
+                        padding:14px 24px;
+                        font-size:14px;
+                        font-weight:700;
+                        color:#ffffff;
+                        text-decoration:none;
+                        border-radius:12px;
+                      "
+                    >
+                      Open timetable →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="
+                margin:27px 0 0;
+                font-size:12px;
+                line-height:1.7;
+                color:#9b8f8b;
+              ">
+                If you've already completed this activity, no action is needed.
+                You can manage email and browser reminders from
+                <strong style="color:#756966;">Profile → Notifications</strong>.
+              </p>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td style="
+              padding:20px 34px;
+              border-top:1px solid #f0ebea;
+              background:#fcfbfa;
+            ">
+              <table
+                role="presentation"
+                width="100%"
+                cellspacing="0"
+                cellpadding="0"
+                border="0"
+              >
+                <tr>
+                  <td style="
+                    font-size:11px;
+                    color:#a29692;
+                  ">
+                    Life OS · Buraq Studios
+                  </td>
+
+                  <td
+                    align="right"
+                    style="
+                      font-size:11px;
+                      color:#a29692;
+                    "
+                  >
+                    Small reminders. Better days.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

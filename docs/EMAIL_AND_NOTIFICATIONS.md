@@ -6,46 +6,23 @@
 
 ## Shipped code
 
-- `/reset` is the short address to request a reset email. Firebase sends its
-  standard reset message; the request no longer includes an unnecessary
-  continue URL that could fail authorized-domain validation.
-- `/auth/action` handles Firebase resetPassword and verifyEmail links. Reset
-  codes are verified before showing the password form. Passwords must match;
-  expired/used links have a recovery path. Untrusted continue URLs are ignored.
-- New email/password registrations request a Firebase verification email.
-  Profile includes dedicated reset and verification email buttons.
-- Reset responses do not reveal whether an email is registered and do not claim
-  inbox delivery. Check spam, quotas, the account address and Firebase Auth
-  configuration when delivery is absent; an accepted API request is not proof
-  of delivery.
-- Profile reminder controls now control actual in-app reminders. Optional system
-  notifications request browser permission and use a small service worker for
-  mobile-compatible notification display. Life OS must remain open; background
-  tabs can be throttled. This is not closed-app push.
-
-## Firebase console setup still required
-
-The Firebase plugin is installed but no Firebase administration tools are exposed
-in this session. Project template/domain/delivery settings could not be changed.
-
-In Authentication → Templates → Password reset:
-- Sender display name: Life OS
-- Subject: Reset your Life OS password
-- Message: use `email-templates/password-reset.html` if the template editor accepts
-  HTML, otherwise use the short equivalent: “Use this link to reset your Life OS
-  password: %LINK%. If you didn’t request this, ignore this email.”
-- Customize action URL: `https://lifeos53.vercel.app/auth/action`
-
-Firebase applies the custom action URL to verification templates too. The handler
-supports both modes. Keep Firebase's generated `%LINK%` intact. Its one-time
-`oobCode` and mode parameters are necessary; do not send them through public link
-shorteners. A short button label provides a clean email without dropping security
-parameters. Sender-domain customization requires ownership/DNS verification of
-that sender domain; the Vercel subdomain does not grant email-domain ownership.
-
-Ensure Authentication has Email/Password enabled and Authorized domains includes
-`lifeos53.vercel.app` (needed for the app's auth/domain flows). Default reset emails
-still work without activating the custom handler.
+- `/reset` is the in-app password reset screen using a secure 6-digit OTP system.
+  Firebase password-reset links have been completely replaced.
+- The user enters their email, receives a 6-digit numeric OTP via Gmail SMTP (expires in 10 minutes),
+  enters and verifies the code in Life OS, receives a short-lived one-time reset token,
+  and updates their Firebase Authentication password directly via the secure server backend.
+- Generic responses are returned on password reset requests to prevent user enumeration.
+- Endpoints:
+  - `POST /api/auth/password-reset/request`
+  - `POST /api/auth/password-reset/verify`
+  - `POST /api/auth/password-reset/confirm`
+- One-time Welcome Email:
+  - Genuinely new users receive a one-time welcome email via existing Gmail SMTP upon registration
+    or first-time Google sign-in.
+  - Endpoint `POST /api/auth/welcome` verifies the Firebase ID token and uses atomic Firestore receipts
+    at `users/{uid}/emailReceipts/welcome` for idempotency.
+- Profile reminder controls manage in-app and background reminders.
+- Background delivery uses Gmail SMTP and Web Push.
 
 ## Welcome emails, alert emails and closed-app push
 

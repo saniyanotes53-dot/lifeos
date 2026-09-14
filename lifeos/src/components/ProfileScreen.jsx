@@ -48,7 +48,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
       } else {
         // Fallback: send password reset email
         await resetPassword(user.email);
-        setPwMsg(`A password reset link was sent to ${user.email}.`);
+        setPwMsg(`A verification code was sent to ${user.email}.`);
       }
     } catch (e) {
       if (e.code === "auth/requires-recent-login") {

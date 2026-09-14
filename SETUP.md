@@ -1,4 +1,4 @@
-> Current assistant setup: see [docs/ASSISTANT_SETUP.md](docs/ASSISTANT_SETUP.md). The assistant uses direct Gemini and in-app reminders; older push setup below is legacy.
+> Current assistant & auth setup: see [docs/ASSISTANT_SETUP.md](docs/ASSISTANT_SETUP.md), [docs/EMAIL_AND_NOTIFICATIONS.md](docs/EMAIL_AND_NOTIFICATIONS.md), and [docs/GOOGLE_REMINDER_SETUP.md](docs/GOOGLE_REMINDER_SETUP.md). Password resets use an in-app 6-digit OTP system via Gmail SMTP (requires `PASSWORD_RESET_SECRET`), and new users receive a one-time welcome email. Older Firebase reset links and push setup below are legacy.
 
 # Life OS — Firebase integration handoff
 
