@@ -45,7 +45,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
 
   const weekDates = getWeekDates(selectedDate);
 
-  const requestPerm = async () => {
+  const handleEnablePush = async () => {
     setPushLoading(true);
     try {
       const token = await enablePush();
@@ -185,7 +185,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId }) 
             </div>
             {permission !== "granted" && permission !== "unsupported" && (
               <button
-                onClick={requestPerm}
+                onClick={handleEnablePush}
                 disabled={pushLoading}
                 className="press"
                 style={{

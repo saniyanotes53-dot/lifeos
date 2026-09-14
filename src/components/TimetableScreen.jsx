@@ -68,6 +68,7 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
       setPushState(getPushState(userId));
     } catch (e) {
       setPushError(e.message);
+      setPushState(getPushState(userId));
     } finally {
       setPushLoading(false);
     }
@@ -79,12 +80,24 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
     try {
       if (remindersOn) await disableReminders(user);
       else await enableReminders(user);
+      setRemindersOn(remindersEnabled(userId));
     } catch (e) {
       setPushError(e.message);
     } finally {
       setPushLoading(false);
     }
   };
+
+  const backgroundPushOn = pushState === "on";
+
+  let pushMessage = "Enable Chrome notifications to receive reminders even when Life OS is closed.";
+  if (pushState === "on") {
+    pushMessage = "Browser reminders are on. Chrome can notify you even when Life OS is closed.";
+  } else if (pushState === "denied") {
+    pushMessage = "Chrome notifications are blocked for Life OS. Open Chrome site settings → Notifications → Allow.";
+  } else if (pushState === "unsupported") {
+    pushMessage = "Background browser notifications are not supported by this browser.";
+  }
 
   const add = async (targetDate = selectedDate) => {
     if (!label.trim() || !time || !parseLocalDate(targetDate)) return;
@@ -184,27 +197,101 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
           </div>
         </div>
 
-        {/* Push notification banner */}
-        <Card t={t} style={{ borderColor: remindersOn ? t.a1 : t.line, marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Bell size={16} color={remindersOn ? t.a1 : t.muted} />
-            <div style={{ flex: 1, fontSize: 12, color: t.muted }}>
-              {remindersOn ? "In-app reminders are on. Keep Life OS open; sleeping devices may delay alerts." : "Enable in-app reminders for scheduled blocks while Life OS is open."}
+        {/* Browser push notification banner */}
+        <Card t={t} style={{ borderColor: backgroundPushOn ? t.a1 : t.line, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Bell size={16} color={backgroundPushOn ? t.a1 : t.muted} />
+            <div style={{ flex: 1, fontSize: 12, color: t.muted, minWidth: 220 }}>
+              {pushMessage}
             </div>
-            {(
+            {pushState === "on" && (
               <button
-                onClick={requestPerm}
+                type="button"
+                onClick={handleDisablePush}
+                disabled={pushLoading}
+                className="press"
+                style={{
+                  border: `1px solid ${t.line}`, borderRadius: 9, padding: "7px 12px",
+                  background: t.surface2,
+                  color: t.text, fontSize: 11, fontWeight: 600, cursor: pushLoading ? "wait" : "pointer"
+                }}
+              >
+                {pushLoading ? "…" : "Disable"}
+              </button>
+            )}
+            {pushState === "off" && (
+              <button
+                type="button"
+                onClick={handleEnablePush}
                 disabled={pushLoading}
                 className="press"
                 style={{
                   border: "none", borderRadius: 9, padding: "7px 12px",
                   background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`,
-                  color: t.onAccent, fontSize: 11, fontWeight: 600, cursor: "pointer"
+                  color: t.onAccent, fontSize: 11, fontWeight: 600, cursor: pushLoading ? "wait" : "pointer"
                 }}
               >
-                {pushLoading ? "…" : remindersOn ? "Disable" : "Enable"}
+                {pushLoading ? "…" : "Enable Chrome notifications"}
               </button>
             )}
+            {pushState === "denied" && (
+              <button
+                type="button"
+                disabled
+                className="press"
+                style={{
+                  border: `1px solid ${t.line}`, borderRadius: 9, padding: "7px 12px",
+                  background: t.surface2,
+                  color: t.muted, fontSize: 11, fontWeight: 600, cursor: "not-allowed", opacity: 0.7
+                }}
+              >
+                Blocked
+              </button>
+            )}
+            {pushState === "unsupported" && (
+              <button
+                type="button"
+                disabled
+                className="press"
+                style={{
+                  border: `1px solid ${t.line}`, borderRadius: 9, padding: "7px 12px",
+                  background: t.surface2,
+                  color: t.muted, fontSize: 11, fontWeight: 600, cursor: "not-allowed", opacity: 0.7
+                }}
+              >
+                Unsupported
+              </button>
+            )}
+          </div>
+        </Card>
+
+        {/* In-app reminder control */}
+        <Card t={t} style={{ borderColor: remindersOn ? t.a1 : t.line, marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Bell size={16} color={remindersOn ? t.a1 : t.muted} />
+            <div style={{ flex: 1, fontSize: 12, color: t.muted, minWidth: 220 }}>
+              {remindersOn
+                ? "In-app reminders are on. Keep Life OS open; sleeping devices may delay alerts."
+                : "Enable in-app reminders for scheduled blocks while Life OS is open."}
+            </div>
+            <button
+              type="button"
+              onClick={toggleInAppReminders}
+              disabled={pushLoading}
+              className="press"
+              style={{
+                border: remindersOn ? `1px solid ${t.line}` : "none",
+                borderRadius: 9,
+                padding: "7px 12px",
+                background: remindersOn ? t.surface2 : `linear-gradient(135deg, ${t.a1}, ${t.a3})`,
+                color: remindersOn ? t.text : t.onAccent,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: pushLoading ? "wait" : "pointer"
+              }}
+            >
+              {pushLoading ? "…" : remindersOn ? "Disable In-App" : "Enable In-App"}
+            </button>
           </div>
         </Card>
 

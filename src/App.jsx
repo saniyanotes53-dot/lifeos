@@ -25,6 +25,7 @@ import CommandPalette from "./components/CommandPalette";
 import WealthSimulatorModal from "./components/WealthSimulatorModal";
 import { ToastProvider } from "./components/Toast";
 import AssistantScreen from "./components/AssistantScreen";
+import ScreenErrorBoundary from "./components/ScreenErrorBoundary";
 import { disableReminders, watchReminders } from "./notifications";
 import CopyrightFooter from "./components/CopyrightFooter";
 
@@ -481,107 +482,113 @@ export default function App() {
           {/* Scrollable View Content */}
           <main className="main-content" style={{ flex: 1, overflowY: "auto", position: "relative" }}>
             {pushNotice && <div role="status" style={{padding:12,background:t.surface2}}>{pushNotice} <button className="link-button" onClick={() => { setPushNotice(""); setTab("timetable"); }}>View timetable</button><button className="link-button" onClick={() => setPushNotice("")}>Dismiss</button></div>}
-            {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
-            {tab === "home" && (
-              <Dashboard
-                t={t}
-                tasks={tasks}
-                sleep={sleep}
-                tx={tx}
-                workouts={workouts}
-                blocks={blocks}
-                onOpenHealthView={(view) => { setHealthView(view); setTab("health"); }}
-                name={displayName}
-                setTab={setTab}
-                theme={theme}
-                setTheme={setTheme}
-                onOpenProfile={() => setTab("profile")}
-                onOpenWealth={() => setIsWealthSimulatorOpen(true)}
-                onOpenFocus={() => setTab("focus")}
-              />
-            )}
+            <ScreenErrorBoundary
+              t={t}
+              resetKey={tab}
+              onReturnToDashboard={() => setTab("home")}
+            >
+              {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
+              {tab === "home" && (
+                <Dashboard
+                  t={t}
+                  tasks={tasks}
+                  sleep={sleep}
+                  tx={tx}
+                  workouts={workouts}
+                  blocks={blocks}
+                  onOpenHealthView={(view) => { setHealthView(view); setTab("health"); }}
+                  name={displayName}
+                  setTab={setTab}
+                  theme={theme}
+                  setTheme={setTheme}
+                  onOpenProfile={() => setTab("profile")}
+                  onOpenWealth={() => setIsWealthSimulatorOpen(true)}
+                  onOpenFocus={() => setTab("focus")}
+                />
+              )}
 
-            {tab === "tasks" && (
-              <TasksScreen
-                t={t}
-                tasks={tasks}
-                userId={user.uid}
-                timetable={blocks}
-                onOpenFocusWithTask={(taskId) => {
-                  setTargetFocusTaskId(taskId);
-                  setTab("focus");
-                }}
-              />
-            )}
+              {tab === "tasks" && (
+                <TasksScreen
+                  t={t}
+                  tasks={tasks}
+                  userId={user.uid}
+                  timetable={blocks}
+                  onOpenFocusWithTask={(taskId) => {
+                    setTargetFocusTaskId(taskId);
+                    setTab("focus");
+                  }}
+                />
+              )}
 
-            {tab === "focus" && (
-              <FocusStudio
-                t={t}
-                tasks={tasks}
-                initialTaskId={targetFocusTaskId}
-                onCompleteTask={async (taskId) => {
-                  await updateItem(user.uid, "tasks", taskId, { done: true });
-                }}
-              />
-            )}
+              {tab === "focus" && (
+                <FocusStudio
+                  t={t}
+                  tasks={tasks}
+                  initialTaskId={targetFocusTaskId}
+                  onCompleteTask={async (taskId) => {
+                    await updateItem(user.uid, "tasks", taskId, { done: true });
+                  }}
+                />
+              )}
 
-            {tab === "timetable" && (
-              <TimetableScreen
-                t={t}
-                blocks={blocks}
-                tasks={tasks}
-                user={user}
-                userId={user.uid}
-              />
-            )}
+              {tab === "timetable" && (
+                <TimetableScreen
+                  t={t}
+                  blocks={blocks}
+                  tasks={tasks}
+                  user={user}
+                  userId={user.uid}
+                />
+              )}
 
-            {tab === "health" && (
-              <HealthScreen
-                t={t}
-                initialView={healthView}
-                sleep={sleep}
-                workouts={workouts}
-                meals={meals}
-                userId={user.uid}
-                bodyMetrics={bodyMetrics}
-              />
-            )}
+              {tab === "health" && (
+                <HealthScreen
+                  t={t}
+                  initialView={healthView}
+                  sleep={sleep}
+                  workouts={workouts}
+                  meals={meals}
+                  userId={user.uid}
+                  bodyMetrics={bodyMetrics}
+                />
+              )}
 
-            {tab === "budget" && (
-              <BudgetScreen
-                t={t}
-                tx={tx}
-                userId={user.uid}
-                wallets={wallets}
-                categoryBudgets={categoryBudgets}
-                loans={loans}
-                subscriptions={subscriptions}
-                billSplits={billSplits}
-                onAskAssistant={askAssistant}
-              />
-            )}
+              {tab === "budget" && (
+                <BudgetScreen
+                  t={t}
+                  tx={tx}
+                  userId={user.uid}
+                  wallets={wallets}
+                  categoryBudgets={categoryBudgets}
+                  loans={loans}
+                  subscriptions={subscriptions}
+                  billSplits={billSplits}
+                  onAskAssistant={askAssistant}
+                />
+              )}
 
-            {tab === "reports" && (
-              <ReportsScreen
-                t={t}
-                tasks={tasks}
-                sleep={sleep}
-                tx={tx}
-              />
-            )}
+              {tab === "reports" && (
+                <ReportsScreen
+                  t={t}
+                  tasks={tasks}
+                  sleep={sleep}
+                  tx={tx}
+                />
+              )}
 
-            {tab === "profile" && (
-              <ProfileScreen
-                t={t}
-                user={user}
-                theme={theme}
-                setTheme={setTheme}
-                scheme={scheme}
-                setScheme={setScheme}
-                onLogout={handleLogout}
-                onOpenGuide={() => setShowGuideModal(true)}
-              />
-            )}
+              {tab === "profile" && (
+                <ProfileScreen
+                  t={t}
+                  user={user}
+                  theme={theme}
+                  setTheme={setTheme}
+                  scheme={scheme}
+                  setScheme={setScheme}
+                  onLogout={handleLogout}
+                  onOpenGuide={() => setShowGuideModal(true)}
+                />
+              )}
+            </ScreenErrorBoundary>
           </main>
 
           {/* MOBILE BOTTOM NAVIGATION */}
