@@ -1,10 +1,10 @@
 import EmailActionScreen from './components/EmailActionScreen';
 import AssistantPanel from './components/AssistantPanel';
-import {Modal,Card,IconBtn} from './components/primitives';
-import React, { useState, useEffect } from "react";
+import {Modal,Card,IconBtn,Screen,GhostButton} from './components/primitives';
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   Home, ListChecks, Moon, Wallet, BarChart3, Clock, User, LogOut, Sparkles, Sun, Settings,
-  ChevronRight, Headphones, Search, DollarSign, Award, Zap, MessageCircle
+  ChevronRight, Headphones, Search, DollarSign, Award, Zap, MessageCircle, MoreHorizontal
 } from "lucide-react";
 import { useLocalDay } from "./useLocalDay";
 import { useT, PALETTES } from "./theme";
@@ -14,11 +14,11 @@ import { ensureUserProfile, watchCollection, updateItem } from "./firestore";
 import AuthScreen from "./components/AuthScreen";
 import Dashboard from "./components/Dashboard";
 import TasksScreen from "./components/TasksScreen";
-import FocusStudio from "./components/FocusStudio";
-import HealthScreen from "./components/HealthScreen";
-import BudgetScreen from "./components/BudgetScreen";
+const FocusStudio=lazy(()=>import("./components/FocusStudio"));
+const HealthScreen=lazy(()=>import("./components/HealthScreen"));
+const BudgetScreen=lazy(()=>import("./components/BudgetScreen"));
 import TimetableScreen from "./components/TimetableScreen";
-import ReportsScreen from "./components/ReportsScreen";
+const ReportsScreen=lazy(()=>import("./components/ReportsScreen"));
 import ProfileScreen from "./components/ProfileScreen";
 import UserGuideModal from "./components/UserGuideModal";
 import CommandPalette from "./components/CommandPalette";
@@ -93,16 +93,6 @@ export default function App() {
     });
   }, [user]);
 
-  useEffect(() => {
-    if (user && user.uid) {
-      const key = "lifeos_guide_seen_" + user.uid;
-      const seen = localStorage.getItem(key);
-      if (!seen) {
-        setShowGuideModal(true);
-      }
-    }
-  }, [user]);
-
   const handleCloseGuide = () => {
     setShowGuideModal(false);
     if (user?.uid) {
@@ -143,17 +133,11 @@ export default function App() {
   const assistantData={tasks,blocks,sleep,tx,workouts,wallets,categoryBudgets,subscriptions,billSplits,loans,dataErrors};
   const displayName = user ? (user.displayName || user.email?.split("@")[0] || "User") : "";
 
-  // Pro navigation items for desktop sidebar & mobile
   const NAV = [
-    ["home", Home, "Home"],
-    ["tasks", ListChecks, "Tasks"],
-    ["assistant", MessageCircle, "Assistant"],
-    ["focus", Headphones, "Focus Studio", "PRO"],
-    ["timetable", Clock, "Timetable"],
-    ["health", Moon, "Health"],
-    ["budget", Wallet, "Budget"],
-    ["reports", BarChart3, "Reports"],
+    ['home',Home,'Home'], ['tasks',ListChecks,'Tasks'], ['timetable',Clock,'Timetable'],
+    ['budget',Wallet,'Budget'], ['assistant',MessageCircle,'Assistant'], ['more',MoreHorizontal,'More'],
   ];
+  const MORE = [['timetable',Clock,'Timetable','Plan time blocks and reminders'],['health',Moon,'Health','Sleep, workouts and meals'],['reports',BarChart3,'Reports','Review progress and export'],['focus',Headphones,'Focus','Timer and focus sessions'],['profile',User,'Settings','Account, theme and notifications']];
 
   if(window.location.pathname === "/auth/action")return <EmailActionScreen t={t}/>;
 
@@ -298,7 +282,7 @@ export default function App() {
           {/* Sidebar Nav Items */}
           <nav style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
             {NAV.map(([key, Icon, label, badge]) => {
-              const isActive = tab === key;
+              const isActive = tab === key || (key === "more" && ["health","reports","focus","profile"].includes(tab));
               return (
                 <button
                   key={key}
@@ -409,34 +393,6 @@ export default function App() {
                 </span>
               </button>
 
-              {/* Wealth Simulator Trigger */}
-              <button
-                onClick={() => setIsWealthSimulatorOpen(true)}
-                className="press desktop-action"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
-                  borderRadius: 10, border: `1px solid ${t.good}44`, background: `${t.good}15`,
-                  color: t.good, fontSize: 12, fontWeight: 700, cursor: "pointer"
-                }}
-                title="Open Wealth Runway & Compound Growth Projector"
-              >
-                <DollarSign size={14} /> Wealth
-              </button>
-
-              {/* Guide modal trigger */}
-              <button
-                onClick={() => setShowGuideModal(true)}
-                className="press desktop-action"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "6px 12px",
-                  borderRadius: 10, border: `1px solid ${t.line}`, background: t.surface2,
-                  color: t.a1, fontSize: 12, fontWeight: 600, cursor: "pointer"
-                }}
-                title="Open Tour & Guide"
-              >
-                <Sparkles size={14} /> Guide
-              </button>
-
               {/* Quick theme mode toggle */}
               <button type="button"
                 onClick={() => {
@@ -487,6 +443,7 @@ export default function App() {
               resetKey={tab}
               onReturnToDashboard={() => setTab("home")}
             >
+              <Suspense fallback={<p role="status" style={{padding:24,color:t.muted}}>Loading…</p>}>
               {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
               {tab === "home" && (
                 <Dashboard
@@ -558,6 +515,7 @@ export default function App() {
                   t={t}
                   tx={tx}
                   userId={user.uid}
+                  user={user}
                   wallets={wallets}
                   categoryBudgets={categoryBudgets}
                   loans={loans}
@@ -576,6 +534,8 @@ export default function App() {
                 />
               )}
 
+              {tab === 'more' && <Screen t={t} title="More"><div style={{maxWidth:720,margin:'0 auto',display:'grid',gap:10}}>{MORE.map(([key,Icon,label,description])=><Card key={key} t={t} onClick={()=>setTab(key)} style={{display:'flex',alignItems:'center',gap:16}}><Icon color={t.a1} size={22}/><div style={{flex:1}}><strong>{label}</strong><div style={{color:t.muted,fontSize:13,marginTop:4}}>{description}</div></div><ChevronRight color={t.muted} size={18}/></Card>)}<details><summary style={{cursor:'pointer',color:t.muted,padding:12}}>Additional tools</summary><div style={{display:'flex',gap:10}}><GhostButton t={t} onClick={()=>setIsWealthSimulatorOpen(true)}>Wealth calculator</GhostButton><GhostButton t={t} onClick={()=>setShowGuideModal(true)}>Help & guide</GhostButton></div></details></div></Screen>}
+
               {tab === "profile" && (
                 <ProfileScreen
                   t={t}
@@ -588,6 +548,7 @@ export default function App() {
                   onOpenGuide={() => setShowGuideModal(true)}
                 />
               )}
+              </Suspense>
             </ScreenErrorBoundary>
           </main>
 
@@ -599,16 +560,10 @@ export default function App() {
             alignItems: "center", zIndex: 50
           }}>
             {[
-              ["home", Home, "Home"],
-              ["tasks", ListChecks, "Tasks"],
-    ["assistant", MessageCircle, "Assistant"],
-              ["focus", Headphones, "Focus"],
-              ["timetable", Clock, "Time"],
-              ["health", Moon, "Health"],
-              ["budget", Wallet, "Budget"],
-              ["reports", BarChart3, "Reports"]
+              ['home',Home,'Home'],['tasks',ListChecks,'Tasks'],['budget',Wallet,'Budget'],
+              ['assistant',MessageCircle,'Assistant'],['more',MoreHorizontal,'More']
             ].map(([key, Icon, label]) => {
-              const isActive = tab === key;
+              const isActive = tab === key || (key === "more" && ["timetable","health","reports","focus","profile"].includes(tab));
               return (
                 <button type="button"
                   key={key}

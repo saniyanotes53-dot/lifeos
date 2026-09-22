@@ -15,5 +15,5 @@ export default async function handler(req,res){
   const result=await proposeActions(text,history,context,fetch,streaming?reply=>emit({type:'reply',text:reply}):null);
   console.info('[assistant.reply]',{durationMs:Date.now()-started,actions:result.actions.length});
   if(streaming){emit({type:'done',result});return res.end();}return res.json(result);
- }catch(e){console.error('[assistant.reply.failed]',{status:e.status||500,code:e.name});if(res.headersSent){res.write(JSON.stringify({type:'error',error:e.status?e.message:'The reply was interrupted. Please try again.'})+'\n');return res.end();}return fail(res,e);}
+ }catch(e){console.error('[assistant.reply.failed]',{status:e.status||500,code:e.name});if(res.headersSent){res.write(JSON.stringify({type:'error',status:e.status||502,error:e.status?e.message:'The reply was interrupted. Please try again.'})+'\n');return res.end();}return fail(res,e);}
 }

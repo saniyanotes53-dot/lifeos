@@ -5,6 +5,7 @@ import {
 import { db, auth } from "./firebase";
 import {commitProposal} from "./assistant/commit.js";
 import { parseLocalDate } from "./utils/dates";
+import {saveImport} from './utils/import-save.js';
 
 const col = (uid, name) => collection(db, "users", uid, name);
 
@@ -12,7 +13,7 @@ export function watchCollection(uid, name, onChange, orderField = null) {
   // A server orderBy excludes legacy documents without that field. Read all
   // owner records, then sort locally so the assistant sees the same full set.
   return onSnapshot(col(uid,name),snap=>{
-    const records=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const records=snap.docs.map(d=>({...d.data(),id:d.id}));
     if(orderField)records.sort((a,b)=>String(b[orderField]??'').localeCompare(String(a[orderField]??'')));
     onChange(records);
     window.dispatchEvent(new CustomEvent('lifeos-data-status',{detail:{collection:name,error:null}}));
@@ -65,11 +66,28 @@ export async function confirmAssistantProposal(user,input){
  const uid=user.uid,profileRef=doc(db,'users',uid);
  try{return await commitProposal(uid,input,{
   hash:async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join(''),
-  records:async name=>(await getDocs(query(col(uid,name),limit(1001)))).docs.map(d=>({id:d.id,...d.data()})),
+  records:async name=>(await getDocs(query(col(uid,name),limit(1001)))).docs.map(d=>({...d.data(),id:d.id})),
   transaction:callback=>runTransaction(db,tx=>callback({
    profile:async()=>(await tx.get(profileRef)).data()||{},
    write:c=>{const ref=doc(db,'users',uid,c.collection,c.id);if(c.delete)tx.delete(ref);else tx.set(ref,c.data,{merge:true});},
    saveProfile:patch=>tx.set(profileRef,patch,{mergeFields:Object.keys(patch)})
   }))
  });}catch(e){console.error('[assistant.save]',{code:e.code||'validation'});if(e.code==='permission-denied')throw new Error('Firebase denied this account access. Try adding a task manually too; if that fails, your Firestore account rules need repair. No changes were saved.');throw e;}
+}
+
+export async function importTransactions(uid,rows,onProgress){
+ if(!uid||auth.currentUser?.uid!==uid)throw new Error('Sign in again before importing.');
+ return saveImport(rows,{
+  hash:async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join(''),
+  commit:entries=>runTransaction(db,async tx=>{
+   const profileRef=doc(db,'users',uid),profile=await tx.get(profileRef);
+   const unique=[...new Map(entries.map(entry=>[entry.id,entry])).values()];
+   const refs=unique.map(entry=>doc(db,'users',uid,'transactions',entry.id));
+   const snapshots=await Promise.all(refs.map(ref=>tx.get(ref)));
+   let saved=0;
+   unique.forEach((entry,index)=>{if(!snapshots[index].exists()){tx.set(refs[index],entry.data);saved++;}});
+   if(saved)tx.set(profileRef,{assistantRevision:(profile.data()?.assistantRevision||0)+1},{merge:true});
+   return {saved,skipped:entries.length-saved};
+  })
+ },onProgress);
 }

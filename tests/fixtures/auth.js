@@ -1,5 +1,6 @@
-const user={uid:'preview-only',displayName:'Example User',email:'example@example.test',providerData:[]};
+const user={uid:'preview-only',displayName:'Example User',email:'example@example.test',providerData:[],getIdToken:async()=>'preview-only-not-a-real-token'};
 export function onAuthChange(fn){fn(new URLSearchParams(location.search).has('signedOut')?null:user);return ()=>{};}
 export async function logout(){location.href='/?signedOut=1';}
 export async function loginWithEmail(){throw new Error('Authentication is disabled in the UI preview.');}
 export const loginWithGoogle=loginWithEmail, registerWithEmail=loginWithEmail, resetPassword=loginWithEmail;
+export const requestPasswordResetOTP=loginWithEmail, verifyPasswordResetOTP=loginWithEmail, confirmPasswordReset=loginWithEmail;

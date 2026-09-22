@@ -19,3 +19,10 @@ export async function confirmAssistantProposal(user,input){
  }});
 }
 let previewProfile={};
+export async function importTransactions(uid,rows,onProgress){
+ const {saveImport}=await import('../../src/utils/import-save.js');
+ return saveImport(rows,{
+  hash:async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join(''),
+  commit:async entries=>{let saved=0;for(const entry of entries){if(!(data.transactions||[]).some(row=>row.id===entry.id)){data.transactions=[...(data.transactions||[]),{...entry.data,id:entry.id}];saved++;}}emit('transactions');return {saved,skipped:entries.length-saved};}
+ },onProgress);
+}

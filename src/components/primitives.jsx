@@ -32,7 +32,7 @@ export function Screen({ title, t, onBack, right, children }) {
 export function Card({ t, children, style, onClick }) {
   return (
     <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } } : undefined} className={onClick ? "press card-hover" : "card-hover"} style={{
-      background: t.surface, border: `1px solid ${t.line}`, borderRadius: 16,
+      background: t.surface, color: t.text, border: `1px solid ${t.line}`, borderRadius: 16,
       padding: 16, marginBottom: 10, cursor: onClick ? "pointer" : "default",
       transition: "transform .15s ease, border-color .2s ease", ...style
     }}>{children}</div>
