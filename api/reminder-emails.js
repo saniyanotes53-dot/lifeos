@@ -1,3 +1,4 @@
+import {renderPaymentEmail} from '../server/payment-email.js';
 import {transport} from '../server/delivery.js';
 import {dbRequest} from '../server/push-delivery.js';
 import {createHash} from 'node:crypto';
@@ -18,7 +19,7 @@ export default async function handler(req,res){
    const receipt=userBase+'/notificationReceipts/'+key;
    const claim=await dbRequest(token,receipt+'?currentDocument.exists=false',{method:'PATCH',body:JSON.stringify({fields:{createdAt:{integerValue:String(Date.now())},channel:{stringValue:'daily-email'}}})});
    if(claim?.conflict)continue;
-   try{await transport({channel:'email',to:job.email,idempotencyKey:key,subject:'Life OS · repayment reminder',text:job.text+'\n\nIf paid or incorrect, contact the person who recorded this balance so they can mark it settled or disable reminders. No payment is taken automatically.'});accepted++;}
+   try{await transport({channel:'email',to:job.email,idempotencyKey:key,...renderPaymentEmail(job)});accepted++;}
    catch(error){await dbRequest(token,receipt,{method:'DELETE'});throw error;}
   }
   return res.json({accepted});

@@ -14,9 +14,9 @@ export default function Dashboard({t,tasks=[],tx=[],blocks=[],name,setTab}){
   const income=month.filter(row=>row.type==='income').reduce((sum,row)=>sum+(Number(row.amount)||0),0);
   const hour=new Date().getHours(),greeting=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   return <div className="dashboard-content" style={{maxWidth:980,margin:'0 auto',padding:'28px 24px'}}>
-    <p style={{fontSize:13,color:t.muted,margin:'0 0 8px'}}>{new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})}</p>
+    <div className="dashboard-welcome"><span className="glass-eyebrow">LIFE, IN BALANCE</span><p style={{fontSize:13,color:t.muted,margin:'0 0 8px'}}>{new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})}</p>
     <h1 style={{fontFamily:"'Iowan Old Style', Georgia, serif",fontSize:30,fontWeight:600,margin:'0 0 8px'}}>{greeting}, {name}</h1>
-    <p style={{color:t.muted,margin:'0 0 28px'}}>A little clarity for the day ahead.</p>
+    <p style={{color:t.muted,margin:'0 0 28px'}}>A little clarity for the day ahead.</p></div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:18}}>
       <section><SectionLabel t={t} text="Your priorities" action="All tasks" onAction={()=>setTab('tasks')}/><Card t={t} style={{padding:20}}>
         {!top.length&&<Empty t={t} text="You're all caught up. Add a task when you're ready."/>}

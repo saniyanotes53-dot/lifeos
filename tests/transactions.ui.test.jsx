@@ -2,6 +2,7 @@ import React from 'react';
 import {describe,it,expect,vi,afterEach,beforeEach} from 'vitest';
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import TransactionEditor,{DeleteTransaction} from '../src/components/TransactionEditor';
+import SplitBills from '../src/components/SplitBills';
 import StatementImport from '../src/components/StatementImport';
 import {addItem,updateItem,deleteItem,importTransactions} from '../src/firestore';
 import {readPdfStatement} from '../src/utils/pdf-statement.js';
@@ -71,3 +72,14 @@ describe('statement review',()=>{
   await waitFor(()=>expect(importTransactions).toHaveBeenCalled());const rows=importTransactions.mock.calls[0][1];expect(rows[0].importKey).not.toBe(rows[1].importKey);
  });
 });
+
+ it('submits a split bill with its contact emails through the Save button',async()=>{
+  render(<SplitBills t={t} userId="test-user"/>);
+  fireEvent.change(screen.getByLabelText('Bill title'),{target:{value:'Dinner'}});
+  fireEvent.change(screen.getByLabelText('Total (₹)'),{target:{value:'100'}});
+  fireEvent.change(screen.getByLabelText('Participants separated by commas'),{target:{value:'Ali, Bea'}});
+  fireEvent.change(screen.getAllByLabelText('Amount already paid (₹)')[0],{target:{value:'100'}});
+  fireEvent.change(screen.getAllByLabelText('Email (optional)')[1],{target:{value:'bea@example.com'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save bill split'}));
+  await waitFor(()=>expect(addItem).toHaveBeenCalledWith('test-user','billSplits',expect.objectContaining({title:'Dinner',emails:{Ali:'',Bea:'bea@example.com'}})));
+ });

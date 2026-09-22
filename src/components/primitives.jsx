@@ -31,8 +31,8 @@ export function Screen({ title, t, onBack, right, children }) {
 
 export function Card({ t, children, style, onClick }) {
   return (
-    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } } : undefined} className={onClick ? "press card-hover" : "card-hover"} style={{
-      background: t.surface, color: t.text, border: `1px solid ${t.line}`, borderRadius: 16,
+    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } } : undefined} className={onClick ? "press card-hover liquid-card" : "card-hover liquid-card"} style={{
+      background: t.glass || t.surface, boxShadow: t.glassShadow, color: t.text, border: `1px solid ${t.line}`, borderRadius: 24,
       padding: 16, marginBottom: 10, cursor: onClick ? "pointer" : "default",
       transition: "transform .15s ease, border-color .2s ease", ...style
     }}>{children}</div>
@@ -100,9 +100,9 @@ export function ThemeToggle({ theme, setTheme, t }) {
       position: "relative", cursor: "pointer", flexShrink: 0
     }}>
       <div style={{
-        position: "absolute", top: 9, left: dark ? 26 : 8, width: 24, height: 24, borderRadius: 12,
+        position: "absolute", top: 9, left: 8, transform: `translateX(${dark ? 18 : 0}px)`, width: 24, height: 24, borderRadius: 12,
         background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`, display: "flex", alignItems: "center",
-        justifyContent: "center", transition: "left .25s cubic-bezier(.4,0,.2,1)"
+        justifyContent: "center", transition: "transform .25s cubic-bezier(.4,0,.2,1)"
       }}>
         {dark ? <Moon size={13} color={t.onAccent} /> : <Sun size={13} color={t.onAccent} />}
       </div>
@@ -157,9 +157,9 @@ export function Segmented({ t, options, value, onChange }) {
   return (
     <div style={{ position: "relative", display: "flex", background: t.surface2, borderRadius: 12, padding: 4, marginBottom: 14, border: `1px solid ${t.line}` }}>
       <div style={{
-        position: "absolute", top: 4, bottom: 4, left: `calc(${idx} * (100% / ${options.length}) + 4px)`,
+        position: "absolute", top: 4, bottom: 4, left: 4, transform: `translateX(calc(${idx} * (100% + 8px)))`,
         width: `calc(100% / ${options.length} - 8px)`, background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`,
-        borderRadius: 9, transition: "left .25s cubic-bezier(.4,0,.2,1)"
+        borderRadius: 9, transition: "transform .25s cubic-bezier(.4,0,.2,1)"
       }} />
       {options.map(([k, l, Icon]) => (
         <button type="button" aria-pressed={value === k} key={k} onClick={() => onChange(k)} style={{

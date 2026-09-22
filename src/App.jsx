@@ -162,12 +162,12 @@ export default function App() {
   if (!user || window.location.pathname === "/reset") {
     return (
       <div style={{
-        minHeight: "100vh", width: "100%", background: t.bg, display: "flex",
+        minHeight: "100vh", width: "100%", background: t.canvas, display: "flex",
         alignItems: "center", justifyContent: "center", padding: 20,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       }}>
         <div style={{
-          width: "100%", maxWidth: 440, background: t.surface, borderRadius: 28,
+          width: "100%", maxWidth: 440, background: t.glass, borderRadius: 28,
           border: `1px solid ${t.line}`, boxShadow: `0 24px 60px -12px ${t.a1}22`,
           overflow: "hidden"
         }}>
@@ -181,7 +181,7 @@ export default function App() {
   return (
     <ToastProvider t={t}>
       <div className="app-shell" style={{
-        "--focus-color": t.a1, display: "flex", minHeight: "100vh", width: "100%", background: t.bg,
+        "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         color: t.text, overflow: "hidden"
       }}>
@@ -569,6 +569,7 @@ export default function App() {
                   key={key}
                   onClick={() => setTab(key)}
                   className="press"
+                  aria-current={isActive ? "page" : undefined}
                   style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                     cursor: "pointer", flex: 1

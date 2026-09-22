@@ -46,7 +46,7 @@ change it. Never paste reset codes or passwords into issue reports or logs.
 
 ## Daily loan and split-bill emails
 
-The `/api/reminder-emails` Vercel cron runs daily at 08:00 UTC. It is disabled until ALL of these production variables are configured:
+The `/api/reminder-emails` endpoint is called once daily by the Apps Script scheduler when its `DAILY_EMAILS_ENABLED` script property is `true`. There is no Vercel cron configured in this repository. It is disabled until ALL of these production variables are configured:
 
 - `RESEND_API_KEY`: secret, from Resend.
 - `EMAIL_FROM`: verified sender, e.g. `Life OS <reminders@your-domain.com>` (use a real domain you control).
@@ -77,3 +77,6 @@ Production setup (credentials go only in Vercel, never chat or source):
 7. In Life OS Profile enable background browser push, accept Chrome's permission, and enable email reminders. Schedule a real task a few minutes ahead, close the tab, and verify browser/email delivery. Review scheduler execution logs and provider delivery logs if either fails.
 
 The endpoint authenticates scheduler requests, checks recent due blocks and linked task completion, and sends only opted-in channels. Per-event/channel receipts suppress repeated runs; stable notification tags collapse duplicate displays. Expired FCM tokens are removed. A failed provider request releases its receipt for retry. A process crash after claiming a receipt can lose a reminder; this initial scheduler is best-effort, not a guaranteed delivery queue. The active window is five minutes and a run accepts at most 20 deliveries; larger workloads need a durable queue. Receipt retention/TTL should be configured as usage grows. No emails or push tests were sent during implementation.
+
+
+Payment reminders use `email-templates/payment-reminder.html` with a plain-text alternative. They distinguish payable and receivable balances, escape user content, and exclude participants with no remaining transfers. Sender configuration status does not prove that the external Apps Script trigger ran or that a message reached an inbox.

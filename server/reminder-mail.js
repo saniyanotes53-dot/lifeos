@@ -4,10 +4,10 @@ import {billLedger,validEmail} from '../src/assistant/budget-tools.js';
 export const mailReady=()=>Boolean(smtpReady()&&process.env.FIREBASE_SERVICE_ACCOUNT_JSON&&process.env.CRON_SECRET);
 export function reminderRecipients(collection,r){
  if(!r.emailReminders||r.settled)return [];
- if(collection==='loans')return validEmail(r.email)&&Number(r.amount)>0?[{email:r.email,text:`${r.person}: ₹${Number(r.amount).toFixed(2)} ${r.type==='lend'?'owed to the sender':'owed by the sender'}. Due ${r.dueDate||'not specified'}.`}]:[];
+ if(collection==='loans')return validEmail(r.email)&&Number(r.amount)>0?[{email:r.email,name:r.person,title:r.type==='lend'?'Borrowed balance':'Lent balance',kind:r.type==='lend'?'payable':'receivable',dueDate:r.dueDate,text:`${r.person}: ₹${Number(r.amount).toFixed(2)} ${r.type==='lend'?'owed to the sender':'owed by the sender'}. Due ${r.dueDate||'not specified'}.`}]:[];
  const {rows,transfers}=billLedger(r);
  if(!transfers.length)return [];
- return rows.filter(p=>validEmail(r.emails?.[p.name])).map(p=>({email:r.emails[p.name],text:`${r.title}: ${p.name}'s share is ₹${p.amount.toFixed(2)}; already paid ₹${p.paid.toFixed(2)}. ${transfers.filter(d=>d.from===p.name||d.to===p.name).map(d=>`${d.from} owes ${d.to} ₹${d.amount.toFixed(2)}.`).join(' ')||'Your share is settled.'}`}));
+ return rows.filter(p=>validEmail(r.emails?.[p.name])&&transfers.some(d=>d.from===p.name||d.to===p.name)).map(p=>({email:r.emails[p.name],name:p.name,title:r.title,kind:p.net>0?'receivable':'payable',dueDate:r.dueDate,text:`${r.title}: ${p.name}'s share is ₹${p.amount.toFixed(2)}; already paid ₹${p.paid.toFixed(2)}. ${transfers.filter(d=>d.from===p.name||d.to===p.name).map(d=>`${d.from} owes ${d.to} ₹${d.amount.toFixed(2)}.`).join(' ')||'Your share is settled.'}`}));
 }
 export async function adminToken(scope='https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/identitytoolkit'){
  const account=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
