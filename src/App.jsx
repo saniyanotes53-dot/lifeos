@@ -1,3 +1,4 @@
+import {GlassSelection,GlassPage} from './components/GlassMotion';
 import BrandLogo from './components/BrandLogo';
 import AuthExperience from './components/AuthExperience';
 import EmailActionScreen from './components/EmailActionScreen';
@@ -255,7 +256,7 @@ export default function App() {
           </div>
 
           {/* Sidebar Nav Items */}
-          <nav style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
+          <nav className="sidebar-navigation" style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
             {NAV.map(([key, Icon, label, badge]) => {
               const isActive = tab === key || (key === "more" && ["health","reports","focus","profile"].includes(tab));
               return (
@@ -266,13 +267,13 @@ export default function App() {
                   style={{
                     display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
                     borderRadius: 12, border: "none",
-                    background: isActive ? `linear-gradient(135deg, ${t.a1}22, ${t.a3}15)` : "transparent",
+                    background: "transparent",
                     color: isActive ? t.a1 : t.muted, fontWeight: isActive ? 700 : 500,
                     fontSize: 13.5, cursor: "pointer", textAlign: "left", width: "100%",
                     transition: "background 0.15s ease, color 0.15s ease"
                   }}
                 >
-                  <Icon size={18} color={isActive ? t.a1 : t.muted} />
+                  {isActive && <GlassSelection group="desktop"/>}<Icon size={18} color={isActive ? t.a1 : t.muted} />
                   <span style={{ flex: 1 }}>{label}</span>
                   {badge && (
                     <span style={{
@@ -418,7 +419,7 @@ export default function App() {
               resetKey={tab}
               onReturnToDashboard={() => setTab("home")}
             >
-              <div key={tab} className="tab-scene"><Suspense fallback={<p role="status" style={{padding:24,color:t.muted}}>Loading…</p>}>
+              <GlassPage key={tab}><Suspense fallback={<p role="status" style={{padding:24,color:t.muted}}>Loading…</p>}>
               {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
               {tab === "home" && (
                 <Dashboard
@@ -523,7 +524,7 @@ export default function App() {
                   onOpenGuide={() => setShowGuideModal(true)}
                 />
               )}
-              </Suspense></div>
+              </Suspense></GlassPage>
             </ScreenErrorBoundary>
           </main>
 
@@ -550,7 +551,7 @@ export default function App() {
                     cursor: "pointer", flex: 1
                   }}
                 >
-                  <Icon weight={isActive ? "fill" : "duotone"} size={23} color={isActive ? t.a1 : t.muted} />
+                  {isActive && <GlassSelection group="mobile"/>}<Icon weight={isActive ? "fill" : "duotone"} size={23} color={isActive ? t.a1 : t.muted} />
                   <span style={{ fontSize: 9.5, fontWeight: isActive ? 700 : 500, color: isActive ? t.a1 : t.muted }}>
                     {label}
                   </span>

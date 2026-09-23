@@ -307,3 +307,19 @@ button.press:active,.auth-palette button:active {transform:scale(.91) !important
 .auth-form-shell .link-button {font-size:12px;}
 @media(max-width:768px){.auth-stage{gap:22px;padding:26px 0}.auth-form-content{padding:26px 24px}.auth-story h1{font-size:32px}.auth-glass-panel{border-radius:32px}.auth-masthead .brand-glass{width:148px}}
 @media(prefers-reduced-motion:reduce){.tab-scene{animation:none !important}button.press:hover,button.press:active,.card-hover[role='button']:hover{transform:none !important}}
+
+/* Shared spring indicator slides between destinations instead of blinking on. */
+.sidebar-navigation button,.mobile-nav button {isolation:isolate;position:relative;}
+.glass-selection {position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;border:1px solid #ffffff45;background:linear-gradient(125deg,#ffffff22,var(--glass-accent,#7fb2ff22));box-shadow:inset 0 1px 1px #ffffff66,inset 0 -1px 1px #ffffff14,0 5px 14px #0002;}
+.mobile-nav button[aria-current='page'] {animation:none;background:transparent !important;border-color:transparent !important;box-shadow:none;}
+.glass-page {min-height:100%;}
+/* Restore the original sculpted wallpaper, softened behind the current form. */
+.cinema-wallpaper {background:radial-gradient(ellipse at 35% 32%,var(--auth-deep),transparent 62%),radial-gradient(ellipse at 85% 95%,var(--auth-accent),transparent 68%),#080c16;}
+.cinema-orbit {border-radius:48%;border:1px solid #ffffff60;box-shadow:inset 16px 4px 30px #ffffff48,inset -34px -12px 70px #0009,0 0 65px #ffffff0b;background:linear-gradient(125deg,#ffffff80 1%,var(--auth-light) 8%,var(--auth-deep) 29%,#050b1a 48%,var(--auth-accent) 68%,#ffffffaa 80%,var(--auth-deep) 96%);filter:blur(20px);}
+.orbit-one {width:80vw;height:100vw;max-width:1150px;max-height:1450px;left:-38%;top:20%;transform:rotate(-32deg);opacity:.85;}
+.orbit-two {width:66vw;height:95vw;right:-37%;top:-40%;transform:rotate(-35deg);opacity:.8;}
+.orbit-three {opacity:.3;}
+.auth-glass-panel {animation:glass-login-arrive .6s cubic-bezier(.16,1,.3,1) both;}
+@keyframes glass-login-arrive {from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:768px){.orbit-one{width:150vw;height:230vw;left:-100%;top:15%}.orbit-two{width:150vw;height:200vw;right:-95%;top:-20%}.cinema-orbit{filter:blur(14px)}}
+@media(prefers-reduced-motion:reduce){.auth-glass-panel{animation:none !important}}
