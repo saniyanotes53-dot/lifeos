@@ -225,7 +225,7 @@ button.press:active::after,button.press:focus-visible::after { opacity:1; }
 .mobile-brand {display:none}
 .auth-experience {min-height:100svh;position:relative;isolation:isolate;overflow:hidden;background:#070c19;color:#f4f6ff;padding:28px clamp(20px,5vw,84px);font-family:var(--font-tech);}
 .cinema-wallpaper {position:absolute;inset:0;z-index:-2;overflow:hidden;background:radial-gradient(ellipse at 35% 32%,var(--auth-deep),transparent 62%),radial-gradient(ellipse at 85% 95%,var(--auth-accent),transparent 68%),#080c16;}
-.cinema-wallpaper::after {content:'';position:absolute;inset:0;background:linear-gradient(90deg,#04091333,#04091300 45%,#04091366);}
+.cinema-wallpaper::after {content:'';position:absolute;inset:0;background:linear-gradient(90deg,#04091366,#04091338 45%,#04091377);pointer-events:none;}
 .cinema-orbit {position:absolute;border-radius:48%;border:1px solid #ffffff60;box-shadow:inset 16px 4px 30px #ffffff48,inset -34px -12px 70px #0009,0 0 65px #ffffff0b;background:linear-gradient(125deg,#ffffff80 1%,var(--auth-light) 8%,var(--auth-deep) 29%,#050b1a 48%,var(--auth-accent) 68%,#ffffffaa 80%,var(--auth-deep) 96%);}
 .orbit-one {width:80vw;height:100vw;max-width:1150px;max-height:1450px;left:-38%;top:20%;transform:rotate(-32deg);}
 .orbit-two {width:66vw;height:95vw;right:-37%;top:-40%;transform:rotate(-35deg);opacity:.8;}
@@ -315,13 +315,13 @@ button.press:active,.auth-palette button:active {transform:scale(.91) !important
 .glass-page {min-height:100%;}
 /* Restore the original sculpted wallpaper, softened behind the current form. */
 .cinema-wallpaper {background:radial-gradient(ellipse at 35% 32%,var(--auth-deep),transparent 62%),radial-gradient(ellipse at 85% 95%,var(--auth-accent),transparent 68%),#080c16;}
-.cinema-orbit {border-radius:48%;border:1px solid #ffffff60;box-shadow:inset 16px 4px 30px #ffffff48,inset -34px -12px 70px #0009,0 0 65px #ffffff0b;background:linear-gradient(125deg,#ffffff80 1%,var(--auth-light) 8%,var(--auth-deep) 29%,#050b1a 48%,var(--auth-accent) 68%,#ffffffaa 80%,var(--auth-deep) 96%);filter:blur(20px);}
+.cinema-orbit {border-radius:48%;border:1px solid #ffffff60;box-shadow:inset 16px 4px 30px #ffffff48,inset -34px -12px 70px #0009,0 0 65px #ffffff0b;background:linear-gradient(125deg,#ffffff80 1%,var(--auth-light) 8%,var(--auth-deep) 29%,#050b1a 48%,var(--auth-accent) 68%,#ffffffaa 80%,var(--auth-deep) 96%);filter:blur(28px);}
 .orbit-one {width:80vw;height:100vw;max-width:1150px;max-height:1450px;left:-38%;top:20%;transform:rotate(-32deg);opacity:.85;}
 .orbit-two {width:66vw;height:95vw;right:-37%;top:-40%;transform:rotate(-35deg);opacity:.8;}
 .orbit-three {opacity:.3;}
 .auth-glass-panel {animation:glass-login-arrive .6s cubic-bezier(.16,1,.3,1) both;}
 @keyframes glass-login-arrive {from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:768px){.orbit-one{width:150vw;height:230vw;left:-100%;top:15%}.orbit-two{width:150vw;height:200vw;right:-95%;top:-20%}.cinema-orbit{filter:blur(14px)}}
+@media(max-width:768px){.orbit-one{width:150vw;height:230vw;left:-100%;top:15%}.orbit-two{width:150vw;height:200vw;right:-95%;top:-20%}.cinema-orbit{filter:blur(20px)}}
 @media(prefers-reduced-motion:reduce){.auth-glass-panel{animation:none !important}}
 
 .liquid-glass-material {position:relative;isolation:isolate;}
