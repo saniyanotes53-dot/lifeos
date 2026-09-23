@@ -59,7 +59,7 @@ export const PALETTES = {
 for (const palette of Object.values(PALETTES)) {
   for (const mode of ['dark', 'light']) {
     const t = palette[mode];
-    t.glass = `linear-gradient(145deg, ${t.surface}${mode === 'dark' ? 'eb' : 'ed'}, ${t.surface2}c9)`;
+    t.glass = `linear-gradient(145deg, ${t.surface}${mode === 'dark' ? 'ad' : 'c9'}, ${t.surface2}96)`;
     t.glassEdge = mode === 'dark' ? '#ffffff24' : '#ffffffd9';
     t.glassShadow = mode === 'dark' ? '0 16px 44px -28px #000000b0, inset 0 1px 0 #ffffff16' : '0 16px 44px -28px #533a3260, inset 0 1px 0 #ffffff';
     t.canvas = `radial-gradient(ellipse at 4% 8%, #4c8dff24, transparent 48%), radial-gradient(ellipse at 92% 38%, #f9ab8c25, transparent 48%), radial-gradient(ellipse at 30% 96%, #9c684b22, transparent 50%), ${t.bg}`;

@@ -274,19 +274,12 @@ export default function AuthScreen({ t, onLogin }) {
   };
 
   return (
-    <div style={{ position: "relative", height: "100%", overflow: "hidden" }}>
-      <Hero t={t} height={220} />
-      <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", justifyContent: "center", padding: "28px" }}>
-        <div style={{ textAlign: "center", marginBottom: 26 }}>
-          <div className="pulse" style={{
-            width: 58, height: 58, margin: "0 auto 16px", borderRadius: 18,
-            background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`, display: "flex", alignItems: "center",
-            justifyContent: "center", boxShadow: `0 10px 26px -8px ${t.a1}aa`
-          }}>
-            <Sparkles size={26} color={t.onAccent} />
-          </div>
-          <h1 style={{ fontFamily: "'Iowan Old Style', Georgia, serif", fontSize: 27, color: t.text, margin: "0 0 4px" }}>Life OS</h1>
-          <div style={{ fontSize: 13, color: t.muted }}>Your day, budget, and body — one calm screen</div>
+    <div className="auth-form-shell">
+      <div className="auth-form-content">
+        <div className="auth-form-heading">
+          <span className="cinema-kicker">{mode === 'register' ? 'A FRESH START' : mode === 'reset' ? 'LET’S GET YOU BACK' : 'YOUR SPACE AWAITS'}</span>
+          <h2>{mode === 'register' ? 'Begin your next chapter.' : mode === 'reset' ? 'Find your way back.' : 'Welcome back.'}</h2>
+          <p>{mode === 'register' ? 'Create your account. Make room for what matters.' : mode === 'reset' ? 'A few simple steps to recover your account.' : 'Step into a calmer, more intentional day.'}</p>
         </div>
 
         {/* ----------------- RESET PASSWORD FLOW ----------------- */}

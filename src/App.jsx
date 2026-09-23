@@ -1,3 +1,5 @@
+import BrandLogo from './components/BrandLogo';
+import AuthExperience from './components/AuthExperience';
 import EmailActionScreen from './components/EmailActionScreen';
 import AssistantPanel from './components/AssistantPanel';
 import {Modal,Card,IconBtn,Screen,GhostButton} from './components/primitives';
@@ -11,7 +13,6 @@ import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
 import { ensureUserProfile, watchCollection, updateItem } from "./firestore";
 
-import AuthScreen from "./components/AuthScreen";
 import Dashboard from "./components/Dashboard";
 import TasksScreen from "./components/TasksScreen";
 const FocusStudio=lazy(()=>import("./components/FocusStudio"));
@@ -158,30 +159,16 @@ export default function App() {
     );
   }
 
-  // Not logged in: Show Full-page Auth Screen
+  // Shared cinematic entry for login, registration and password recovery.
   if (!user || window.location.pathname === "/reset") {
-    return (
-      <div style={{
-        minHeight: "100vh", width: "100%", background: t.canvas, display: "flex",
-        alignItems: "center", justifyContent: "center", padding: 20,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-      }}>
-        <div style={{
-          width: "100%", maxWidth: 440, background: t.glass, borderRadius: 28,
-          border: `1px solid ${t.line}`, boxShadow: `0 24px 60px -12px ${t.a1}22`,
-          overflow: "hidden"
-        }}>
-          <AuthScreen t={t} onLogin={() => {}} />
-        </div>
-      </div>
-    );
+    return <AuthExperience t={t} scheme={scheme} setScheme={setScheme}/>;
   }
 
   // Logged In: Full Desktop / Tablet / Mobile Website Layout wrapped in ToastProvider
   return (
     <ToastProvider t={t}>
       <div className="app-shell" style={{
-        "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
+        "--solid-surface": t.surface, "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         color: t.text, overflow: "hidden"
       }}>
@@ -233,23 +220,7 @@ export default function App() {
           width: 260, background: t.surface, borderRight: `1px solid ${t.line}`,
           display: "flex", flexDirection: "column", flexShrink: 0, zIndex: 10
         }}>
-          {/* Brand Header */}
-          <div style={{ padding: "24px 22px 18px", display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${t.line}` }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 12,
-              background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 8px 20px -6px ${t.a1}88`
-            }}>
-              <Sparkles size={20} color={t.onAccent} />
-            </div>
-            <div>
-              <div style={{ fontFamily: "'Iowan Old Style', Georgia, serif", fontSize: 20, fontWeight: 700, color: t.text }}>
-                Life OS
-              </div>
-              <div style={{ fontSize: 11, color: t.muted }}>Personal Operating System</div>
-            </div>
-          </div>
+          <div className="sidebar-brand"><BrandLogo scheme={scheme}/><span>PERSONAL OPERATING SYSTEM</span></div>
 
           {/* Quick Spotlight search button in sidebar */}
           <div style={{ padding: "14px 14px 6px" }}>
@@ -365,7 +336,7 @@ export default function App() {
             padding: "0 28px", flexShrink: 0
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, textTransform: "capitalize", color: t.text }}>
+              <span className="mobile-brand"><BrandLogo scheme={scheme}/></span><h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, textTransform: "capitalize", color: t.text }}>
                 {tab === "focus" ? "Focus Studio" : tab}
               </h2>
               <span className="header-date" style={{ fontSize: 12, color: t.muted }}>
