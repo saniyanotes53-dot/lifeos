@@ -8,7 +8,7 @@ import EventBudget from './EventBudget';
 import BudgetTools from './BudgetTools';
 import { IconBtn } from "./primitives";
 import { Modal } from "./primitives";
-import {Upload, CreditCard, Banknote, Plus, Sparkles, X} from 'lucide-react';
+import {UploadSimpleIcon as Upload, CreditCardIcon as CreditCard, MoneyIcon as Banknote, PlusIcon as Plus, SparkleIcon as Sparkles, XIcon as X} from "@phosphor-icons/react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid
 } from "recharts";

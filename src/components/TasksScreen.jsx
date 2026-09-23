@@ -1,9 +1,6 @@
 import { IconBtn } from "./primitives";
 import React, { useState, useMemo } from "react";
-import {
-  Plus, Check, X, Calendar, Clock, Headphones, Search, Filter,
-  Sparkles, CheckCircle2, AlertCircle, ArrowUpDown
-} from "lucide-react";
+import {PlusIcon as Plus, CheckIcon as Check, XIcon as X, CalendarDotsIcon as Calendar, ClockIcon as Clock, HeadphonesIcon as Headphones, MagnifyingGlassIcon as Search, FunnelSimpleIcon as Filter, SparkleIcon as Sparkles, CheckCircleIcon as CheckCircle2, WarningCircleIcon as AlertCircle, ArrowsDownUpIcon as ArrowUpDown} from "@phosphor-icons/react";
 import { inputStyle, todayStr, PRI_KEY } from "../theme";
 import { Card, Screen, Empty, PrimaryButton, ProgressRing } from "./primitives";
 import { addItem, updateItem, deleteItem } from "../firestore";

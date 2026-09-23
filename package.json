@@ -11,6 +11,7 @@
     "test:ui": "vitest run --config tests/ui.config.js"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "firebase": "^10.12.2",
     "jose": "6.2.12",
     "lucide-react": "^0.462.0",

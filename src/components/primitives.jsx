@@ -1,8 +1,8 @@
 import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-  ChevronLeft, Moon, Sun, Check
-} from "lucide-react";
+  CaretLeftIcon as ChevronLeft, MoonIcon as Moon, SunIcon as Sun, CheckIcon as Check
+} from "@phosphor-icons/react";
 
 export function IconBtn({ children, onClick, t, style, label, ...props }) {
   return (

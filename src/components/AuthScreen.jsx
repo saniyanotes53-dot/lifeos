@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mail, Lock, User as UserIcon, Sparkles, Eye, EyeOff, CheckCircle2, ArrowLeft } from "lucide-react";
+import {EnvelopeSimpleIcon as Mail, LockKeyIcon as Lock, UserCircleIcon as UserIcon, SparkleIcon as Sparkles, EyeIcon as Eye, EyeSlashIcon as EyeOff, CheckCircleIcon as CheckCircle2, ArrowLeftIcon as ArrowLeft} from '@phosphor-icons/react';
 import { inputStyle } from "../theme";
 import { Field, PrimaryButton, GhostButton, Hero } from "./primitives";
 import {
@@ -276,7 +276,7 @@ export default function AuthScreen({ t, onLogin }) {
   return (
     <div className="auth-form-shell">
       <div className="auth-form-content">
-        <div className="auth-form-heading">
+        <div className="auth-form-heading"><div className="auth-avatar"><UserIcon size={36} weight="duotone"/></div>
           <span className="cinema-kicker">{mode === 'register' ? 'A FRESH START' : mode === 'reset' ? 'LET’S GET YOU BACK' : 'YOUR SPACE AWAITS'}</span>
           <h2>{mode === 'register' ? 'Begin your next chapter.' : mode === 'reset' ? 'Find your way back.' : 'Welcome back.'}</h2>
           <p>{mode === 'register' ? 'Create your account. Make room for what matters.' : mode === 'reset' ? 'A few simple steps to recover your account.' : 'Step into a calmer, more intentional day.'}</p>

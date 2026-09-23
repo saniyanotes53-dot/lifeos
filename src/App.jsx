@@ -5,9 +5,13 @@ import AssistantPanel from './components/AssistantPanel';
 import {Modal,Card,IconBtn,Screen,GhostButton} from './components/primitives';
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
-  Home, ListChecks, Moon, Wallet, BarChart3, Clock, User, LogOut, Sparkles, Sun, Settings,
-  ChevronRight, Headphones, Search, DollarSign, Award, Zap, MessageCircle, MoreHorizontal
-} from "lucide-react";
+  HouseIcon as Home, ListChecksIcon as ListChecks, MoonIcon as Moon, WalletIcon as Wallet,
+  ChartBarIcon as BarChart3, ClockIcon as Clock, UserCircleIcon as User, SignOutIcon as LogOut,
+  SparkleIcon as Sparkles, SunIcon as Sun, SlidersHorizontalIcon as Settings,
+  CaretRightIcon as ChevronRight, HeadphonesIcon as Headphones, MagnifyingGlassIcon as Search,
+  CurrencyDollarIcon as DollarSign, MedalIcon as Award, LightningIcon as Zap,
+  ChatCircleDotsIcon as MessageCircle, DotsThreeIcon as MoreHorizontal
+} from "@phosphor-icons/react";
 import { useLocalDay } from "./useLocalDay";
 import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
@@ -414,7 +418,7 @@ export default function App() {
               resetKey={tab}
               onReturnToDashboard={() => setTab("home")}
             >
-              <Suspense fallback={<p role="status" style={{padding:24,color:t.muted}}>Loading…</p>}>
+              <div key={tab} className="tab-scene"><Suspense fallback={<p role="status" style={{padding:24,color:t.muted}}>Loading…</p>}>
               {tab === "assistant" && <AssistantScreen key={user.uid} t={t} user={user} {...assistantData} setTab={setTab} />}
               {tab === "home" && (
                 <Dashboard
@@ -519,7 +523,7 @@ export default function App() {
                   onOpenGuide={() => setShowGuideModal(true)}
                 />
               )}
-              </Suspense>
+              </Suspense></div>
             </ScreenErrorBoundary>
           </main>
 
@@ -546,7 +550,7 @@ export default function App() {
                     cursor: "pointer", flex: 1
                   }}
                 >
-                  <Icon size={19} color={isActive ? t.a1 : t.muted} />
+                  <Icon weight={isActive ? "fill" : "duotone"} size={23} color={isActive ? t.a1 : t.muted} />
                   <span style={{ fontSize: 9.5, fontWeight: isActive ? 700 : 500, color: isActive ? t.a1 : t.muted }}>
                     {label}
                   </span>

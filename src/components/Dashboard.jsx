@@ -1,5 +1,5 @@
 import React from 'react';
-import {Clock,Wallet,ListChecks,ArrowRight,MessageCircle} from 'lucide-react';
+import {ClockIcon as Clock, WalletIcon as Wallet, ListChecksIcon as ListChecks, ArrowRightIcon as ArrowRight, ChatCircleDotsIcon as MessageCircle} from "@phosphor-icons/react";
 import {todayStr,PRI_KEY} from '../theme';
 import {Card,SectionLabel,Empty,GhostButton} from './primitives';
 
