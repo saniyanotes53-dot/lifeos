@@ -173,11 +173,12 @@ export default function App() {
   // Logged In: Full Desktop / Tablet / Mobile Website Layout wrapped in ToastProvider
   return (
     <ToastProvider t={t}>
-      <div className="app-shell" style={{
-        "--solid-surface": t.surface, "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
+      <div className={`app-shell ${theme === "dark" ? "dark" : ""}`} data-mode={theme} data-palette={scheme} style={{
+        "--mesh-primary": t.a1, "--mesh-secondary": t.a2, "--mesh-deep": t.a3, "--ink": t.text, "--ink-muted": t.muted, "--solid-surface": t.surface, "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         color: t.text, overflow: "hidden"
       }}>
+        <div className="ambient-mesh" aria-hidden="true"><i/><i/><i/></div>
         <style>{`
           input:focus, select:focus, textarea:focus { border-color: ${t.a1} !important; outline: none; }
           @media (max-width: 768px) {
@@ -190,7 +191,7 @@ export default function App() {
           }
         `}</style>
 
-        {assistantOpen&&<Modal title="Ask Gemini" onClose={()=>setAssistantOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:150,display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><Card t={t} style={{width:'100%',maxWidth:720,maxHeight:'90vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><strong>Gemini · {tab}</strong><IconBtn t={t} label="Close assistant" onClick={()=>setAssistantOpen(false)}>×</IconBtn></div><AssistantPanel key={user.uid} t={t} user={user} data={assistantData} page={tab} initialPrompt={assistantPrompt}/></Card></Modal>}
+        {assistantOpen&&<Modal title="Ask Gemini" onClose={()=>setAssistantOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:150,display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><Card t={t} variant="glass" style={{width:'100%',maxWidth:720,maxHeight:'90vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><strong>Gemini · {tab}</strong><IconBtn t={t} label="Close assistant" onClick={()=>setAssistantOpen(false)}>×</IconBtn></div><AssistantPanel key={user.uid} t={t} user={user} data={assistantData} page={tab} initialPrompt={assistantPrompt}/></Card></Modal>}
         {/* Global Command Palette Spotlight (Ctrl+K) */}
         <CommandPalette
           isOpen={isCommandPaletteOpen}

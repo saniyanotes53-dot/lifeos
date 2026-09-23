@@ -7,5 +7,5 @@ export function GlassSelection({group}) {
 }
 export function GlassPage({children}) {
  const reduce=useReducedMotion();
- return <motion.div className="glass-page" initial={reduce?false:{opacity:0,x:24}} animate={{opacity:1,x:0}} transition={reduce?{duration:0}:{type:'spring',stiffness:270,damping:29,mass:.8}}>{children}</motion.div>;
+ return <motion.div className="glass-page" initial={reduce?false:{opacity:0,y:14}} animate={{opacity:1,y:0}} transition={reduce?{duration:0}:{duration:.32,ease:[.22,1,.36,1]}}>{children}</motion.div>;
 }

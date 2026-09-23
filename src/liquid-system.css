@@ -1,0 +1,44 @@
+/* LIFE OS material hierarchy. Loaded after legacy styles intentionally. */
+.app-shell {
+  position:relative;
+  --flat-fill:rgba(15,23,42,.045); --flat-hover:rgba(15,23,42,.075);
+  --material-face:rgba(255,255,255,.68); --material-rim:rgba(255,255,255,.94);
+  --material-drop:rgba(15,23,42,.08); --mesh-opacity:.23;
+}
+.app-shell.dark {
+  --flat-fill:rgba(255,255,255,.045); --flat-hover:rgba(255,255,255,.075);
+  --material-face:color-mix(in srgb,var(--solid-surface) 78%,transparent);
+  --material-rim:rgba(255,255,255,.22); --material-drop:rgba(0,0,0,.32); --mesh-opacity:.3;
+}
+.ambient-mesh {position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;contain:strict;}
+.ambient-mesh i {position:absolute;width:65vmax;height:65vmax;border-radius:50%;opacity:var(--mesh-opacity);background:radial-gradient(ellipse,var(--mesh-primary),transparent 67%);animation:ambient-drift 24s ease-in-out infinite alternate;}
+.ambient-mesh i:nth-child(1){left:-25vmax;top:-25vmax;}
+.ambient-mesh i:nth-child(2){right:-30vmax;bottom:-28vmax;background:radial-gradient(ellipse,var(--mesh-secondary),transparent 67%);animation-delay:-9s;animation-duration:29s;}
+.ambient-mesh i:nth-child(3){left:20%;top:38%;width:40vmax;height:40vmax;background:radial-gradient(ellipse,var(--mesh-deep),transparent 68%);animation-delay:-16s;animation-duration:33s;}
+@keyframes ambient-drift {from{transform:translate3d(-2%,0,0) scale(.96)}to{transform:translate3d(7%,5%,0) scale(1.06)}}
+.app-shell .flat-surface {
+  background:var(--flat-fill) !important;border:0 !important;box-shadow:none !important;
+  backdrop-filter:none !important;-webkit-backdrop-filter:none !important;border-radius:16px !important;
+  color:var(--ink);transition:background .18s ease,transform .18s ease;
+}
+@media(hover:hover){.app-shell .flat-surface:hover{background:var(--flat-hover) !important;}.flat-surface[role=button]:hover{transform:translateY(-1px)}}
+.app-shell .primary-glass,.app-shell .mobile-nav,.app-shell .desktop-sidebar {
+  background:var(--material-face) !important;border:1px solid var(--material-rim) !important;
+  box-shadow:inset 0 1px 1px var(--material-rim),inset 0 -1px 1px color-mix(in srgb,var(--mesh-primary) 20%,transparent),0 12px 36px var(--material-drop) !important;
+  backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);
+}
+.app-shell .app-header {background:var(--material-face) !important;box-shadow:none;border-color:transparent !important;backdrop-filter:blur(12px);}
+.app-shell .primary-glass .flat-surface {box-shadow:none !important;}
+.app-shell .glass-selection {background:color-mix(in srgb,var(--mesh-primary) 16%,var(--material-face));border-color:var(--material-rim);box-shadow:inset 0 1px 1px var(--material-rim),0 3px 10px var(--material-drop);}
+.mobile-nav .glass-selection {animation:liquid-morph 8s ease-in-out infinite;}
+@keyframes liquid-morph {0%,100%{border-radius:38% 42% 35% 45% / 40% 36% 44% 40%}50%{border-radius:45% 35% 44% 36% / 35% 45% 38% 42%}}
+.app-shell .mobile-nav button {min-height:54px;min-width:44px;}
+.app-shell .mobile-nav button[aria-current=page] svg,.app-shell .mobile-nav button[aria-current=page] span:not(.glass-selection) {color:var(--ink) !important;}
+.glass-page {min-height:100%;width:100%;}
+.glass-page .screen-body.fade-in {animation:none;}
+.app-shell button:focus-visible {outline:2px solid var(--focus-color);outline-offset:3px;}
+@supports not (backdrop-filter:blur(1px)) {.app-shell .primary-glass,.app-shell .mobile-nav,.app-shell .desktop-sidebar {background:var(--solid-surface) !important;}}
+@media(max-width:768px){.ambient-mesh i:nth-child(3){display:none}.app-shell .mobile-nav{max-width:460px;margin-inline:auto;border-radius:32px;}.app-shell .primary-glass{backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);}}
+@media(prefers-reduced-motion:reduce){.ambient-mesh i,.mobile-nav .glass-selection{animation:none}.app-shell .flat-surface{transition:none}}
+@media(prefers-reduced-transparency:reduce){.ambient-mesh{display:none}.app-shell .primary-glass,.app-shell .mobile-nav,.app-shell .desktop-sidebar,.app-shell .app-header{background:var(--solid-surface) !important;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media print{.ambient-mesh{display:none}}

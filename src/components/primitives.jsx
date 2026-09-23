@@ -29,9 +29,9 @@ export function Screen({ title, t, onBack, right, children }) {
   );
 }
 
-export function Card({ t, children, style, onClick }) {
+export function Card({ t, children, style, onClick, variant = "flat" }) {
   return (
-    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } } : undefined} className={onClick ? "press card-hover liquid-card" : "card-hover liquid-card"} style={{
+    <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } } : undefined} className={`${onClick ? "press " : ""}card-hover ${variant === "glass" ? "liquid-card primary-glass" : "flat-surface"}`} style={{
       background: t.glass || t.surface, boxShadow: t.glassShadow, color: t.text, border: `1px solid ${t.line}`, borderRadius: 24,
       padding: 16, marginBottom: 10, cursor: onClick ? "pointer" : "default",
       transition: "transform .15s ease, border-color .2s ease", ...style
@@ -62,8 +62,8 @@ export function Field({ label, t, children, htmlFor }) {
 export function PrimaryButton({ t, children, onClick, style, disabled, type = "button", ...props }) {
   return (
     <button type={type} onClick={onClick} disabled={disabled} className="press" {...props} style={{
-      width: "100%", minHeight: 44, background: disabled ? t.surface2 : `linear-gradient(135deg, ${t.a1}, ${t.a3})`,
-      color: disabled ? t.muted : t.onAccent, border: "none", borderRadius: 12, padding: "12px 16px",
+      width: "100%", minHeight: 44, background: disabled ? t.surface2 : (t.actionBackground || `linear-gradient(135deg, ${t.a1}, ${t.a3})`),
+      color: disabled ? t.muted : (t.actionText || t.onAccent), border: "none", borderRadius: 12, padding: "12px 16px",
       fontSize: 14, fontWeight: 600, cursor: disabled ? "default" : "pointer",
       boxShadow: disabled ? "none" : `0 6px 16px -6px ${t.a1}88`, transition: "transform .12s ease", ...style
     }}>{children}</button>

@@ -30,7 +30,7 @@ export default function Dashboard({t,tasks=[],tx=[],blocks=[],name,setTab}){
       </Card></section>
     </div>
     <SectionLabel t={t} text="Money this month" action="Open budget" onAction={()=>setTab('budget')}/>
-    <Card t={t} onClick={()=>setTab('budget')} style={{padding:22,display:'flex',alignItems:'center',gap:20,flexWrap:'wrap'}}><Wallet color={t.a1} size={26}/><div style={{flex:1}}><small style={{color:t.muted}}>Expenses</small><div style={{fontSize:24,fontWeight:700,marginTop:5}}>₹{spent.toLocaleString('en-IN')}</div></div><div style={{flex:1}}><small style={{color:t.muted}}>Income</small><div style={{fontSize:24,fontWeight:700,color:t.good,marginTop:5}}>₹{income.toLocaleString('en-IN')}</div></div><ArrowRight color={t.muted} size={18}/></Card>
+    <Card t={t} variant="glass" onClick={()=>setTab('budget')} style={{padding:22,display:'flex',alignItems:'center',gap:20,flexWrap:'wrap'}}><Wallet color={t.a1} size={26}/><div style={{flex:1}}><small style={{color:t.muted}}>Expenses</small><div style={{fontSize:24,fontWeight:700,marginTop:5}}>₹{spent.toLocaleString('en-IN')}</div></div><div style={{flex:1}}><small style={{color:t.muted}}>Income</small><div style={{fontSize:24,fontWeight:700,color:t.good,marginTop:5}}>₹{income.toLocaleString('en-IN')}</div></div><ArrowRight color={t.muted} size={18}/></Card>
     <Card t={t} onClick={()=>setTab('assistant')} style={{display:'flex',alignItems:'center',gap:16,padding:20,marginTop:18,background:t.surface2}}><MessageCircle color={t.a1}/><div style={{flex:1}}><strong>Need a hand?</strong><p style={{color:t.muted,fontSize:13,margin:'5px 0 0'}}>Plan your day, add a task, or ask about your spending.</p></div><ArrowRight color={t.muted} size={18}/></Card>
   </div>;
 }
