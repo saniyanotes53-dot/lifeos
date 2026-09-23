@@ -1,3 +1,4 @@
+import {LiquidGlassCard} from './components/ui/liquid-glass';
 import {GlassSelection,GlassPage} from './components/GlassMotion';
 import BrandLogo from './components/BrandLogo';
 import AuthExperience from './components/AuthExperience';
@@ -221,7 +222,7 @@ export default function App() {
         />
 
         {/* DESKTOP LEFT SIDEBAR */}
-        <aside className="desktop-sidebar" style={{
+        <LiquidGlassCard draggable glowIntensity="sm" shadowIntensity="sm" blurIntensity="sm" className="desktop-sidebar" style={{
           width: 260, background: t.surface, borderRight: `1px solid ${t.line}`,
           display: "flex", flexDirection: "column", flexShrink: 0, zIndex: 10
         }}>
@@ -330,7 +331,7 @@ export default function App() {
             This website is designed by <strong style={{ color: t.a1 }}>Buraq Studios</strong><br />
             Copyright all rights reserved.
           </div>
-        </aside>
+        </LiquidGlassCard>
 
         {/* MAIN CONTENT AREA & TOP HEADER */}
         <div className="app-body" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
