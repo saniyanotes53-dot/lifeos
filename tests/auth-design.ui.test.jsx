@@ -21,7 +21,7 @@ it('keeps login and registration working in the cinematic entry screen',async()=
 });
 it('selects the supplied logo and keeps recovery and theme controls accessible',()=>{
  const change=vi.fn();render(<AuthExperience t={useT('dark','peach')} scheme="peach" setScheme={change}/>);
- expect(screen.getByAltText('LIFE OS').getAttribute('src')).toBe('/brand/lifeos-peach.jpg');
+ expect(screen.getByAltText('LIFE OS — Built to Keep You Ahead.').getAttribute('src')).toBe('/brand/lifeos-wordmark-peach.jpg');
  fireEvent.click(screen.getByRole('button',{name:'brown theme'}));expect(change).toHaveBeenCalledWith('brown');
  fireEvent.click(screen.getByRole('button',{name:'Forgot password?'}));
  expect(screen.getByRole('form',{name:'Reset password'})).toBeTruthy();

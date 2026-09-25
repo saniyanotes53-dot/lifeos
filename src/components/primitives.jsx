@@ -92,22 +92,12 @@ export function Empty({ t, text }) {
   return <div style={{ fontSize: 12.5, color: t.muted, textAlign: "center", padding: "16px 0" }}>{text}</div>;
 }
 
-export function ThemeToggle({ theme, setTheme, t }) {
+export function ThemeToggle({ theme, setTheme }) {
   const dark = theme === "dark";
-  return (
-    <button type="button" role="switch" aria-checked={dark} aria-label="Dark mode" onClick={() => setTheme(dark ? "light" : "dark")} className="press" style={{
-      width: 60, height: 44, borderRadius: 22, background: t.surface2, border: `1px solid ${t.line}`,
-      position: "relative", cursor: "pointer", flexShrink: 0
-    }}>
-      <div style={{
-        position: "absolute", top: 9, left: 8, transform: `translateX(${dark ? 18 : 0}px)`, width: 24, height: 24, borderRadius: 12,
-        background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`, display: "flex", alignItems: "center",
-        justifyContent: "center", transition: "transform .25s cubic-bezier(.4,0,.2,1)"
-      }}>
-        {dark ? <Moon size={13} color={t.onAccent} /> : <Sun size={13} color={t.onAccent} />}
-      </div>
-    </button>
-  );
+  return <button type="button" role="switch" aria-checked={dark} aria-label="Dark mode" title={`Switch to ${dark?'light':'dark'} mode`} onClick={()=>setTheme(dark?'light':'dark')} className={`glass-mode-switch ${dark?'is-night':'is-day'}`}>
+    <span className="mode-label" aria-hidden="true">{dark?'Night':'Day'}</span>
+    <span className="mode-orb" aria-hidden="true">{dark?<Moon size={22} weight="fill"/>:<Sun size={22} weight="fill"/>}</span>
+  </button>;
 }
 
 export function Hero({ t, height = 130 }) {

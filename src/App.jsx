@@ -1,10 +1,11 @@
 import {LiquidGlassCard} from './components/ui/liquid-glass';
 import {GlassSelection,GlassPage} from './components/GlassMotion';
 import BrandLogo from './components/BrandLogo';
+import StartupScreen from './components/StartupScreen';
 import AuthExperience from './components/AuthExperience';
 import EmailActionScreen from './components/EmailActionScreen';
 import AssistantPanel from './components/AssistantPanel';
-import {Modal,Card,IconBtn,Screen,GhostButton} from './components/primitives';
+import {Modal,Card,IconBtn,Screen,GhostButton,ThemeToggle} from './components/primitives';
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   HouseIcon as Home, ListChecksIcon as ListChecks, MoonIcon as Moon, WalletIcon as Wallet,
@@ -38,6 +39,8 @@ import CopyrightFooter from "./components/CopyrightFooter";
 
 export default function App() {
   useLocalDay();
+  const [introComplete,setIntroComplete]=useState(false);
+  useEffect(()=>{const timer=setTimeout(()=>setIntroComplete(true),3500);return()=>clearTimeout(timer);},[]);
   const [assistantOpen,setAssistantOpen]=useState(false);
   const [assistantPrompt,setAssistantPrompt]=useState('');
   const askAssistant=(prompt='')=>{setAssistantPrompt(prompt);setAssistantOpen(true);};
@@ -148,21 +151,9 @@ export default function App() {
 
   if(window.location.pathname === "/auth/action")return <EmailActionScreen t={t}/>;
 
-  // Loading state
-  if (user === undefined) {
-    return (
-      <div style={{
-        display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh",
-        background: t.bg, color: t.muted, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-      }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <div className="pulse" style={{ width: 48, height: 48, borderRadius: 16, background: `linear-gradient(135deg, ${t.a1}, ${t.a3})`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 8px 24px -6px ${t.a1}aa` }}>
-            <Sparkles size={24} color={t.onAccent} />
-          </div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>Loading Life OS…</div>
-        </div>
-      </div>
-    );
+  // Show once per document opening while authentication resolves in parallel.
+  if (!introComplete || user === undefined) {
+    return <StartupScreen t={t} scheme={scheme} theme={theme} waiting={introComplete}/>;
   }
 
   // Shared cinematic entry for login, registration and password recovery.
@@ -371,23 +362,7 @@ export default function App() {
                 </span>
               </button>
 
-              {/* Quick theme mode toggle */}
-              <button type="button"
-                onClick={() => {
-                  const next = theme === "dark" ? "light" : "dark";
-                  setTheme(next);
-                  localStorage.setItem("lifeos_theme", next);
-                }}
-                className="press"
-                style={{ ...{ font: "inherit", textAlign: "inherit", color: "inherit", border: "none", background: "transparent", padding: 0 },
-                  width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.line}`,
-                  background: t.surface2, display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: t.a1
-                }}
-                title="Toggle Light/Dark"
-              >
-                {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-              </button>
+              <ThemeToggle theme={theme} setTheme={next=>{setTheme(next);localStorage.setItem("lifeos_theme",next);}} t={t}/>
 
               {/* Profile Avatar button */}
               <button
