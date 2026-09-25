@@ -52,7 +52,10 @@ export default function App() {
   // Theme state: scheme (blue, brown, peach) and mode (dark, light)
   const [scheme, setScheme] = useState(() => localStorage.getItem("lifeos_scheme") || "blue");
   const [theme, setTheme] = useState(() => localStorage.getItem("lifeos_theme") || "dark");
-  const t = useT(theme, scheme);
+  const [blackHat,setBlackHat]=useState(()=>localStorage.getItem('lifeos_black_hat')==='true');
+  const activeScheme=blackHat?'blackhat':scheme;
+  const activeTheme=blackHat?'dark':theme;
+  const t = useT(activeTheme, activeScheme);
 
   const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
   const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("view") === "timetable" ? "timetable" : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
@@ -153,18 +156,18 @@ export default function App() {
 
   // Show once per document opening while authentication resolves in parallel.
   if (!introComplete || user === undefined) {
-    return <StartupScreen t={t} scheme={scheme} theme={theme} waiting={introComplete}/>;
+    return <StartupScreen t={t} scheme={activeScheme} theme={activeTheme} waiting={introComplete}/>;
   }
 
   // Shared cinematic entry for login, registration and password recovery.
   if (!user || window.location.pathname === "/reset") {
-    return <AuthExperience t={t} scheme={scheme} setScheme={setScheme}/>;
+    return <AuthExperience t={t} scheme={activeScheme} setScheme={setScheme}/>;
   }
 
   // Logged In: Full Desktop / Tablet / Mobile Website Layout wrapped in ToastProvider
   return (
     <ToastProvider t={t}>
-      <div className={`app-shell ${theme === "dark" ? "dark" : ""}`} data-mode={theme} data-palette={scheme} style={{
+      <div className={`app-shell ${activeTheme === "dark" ? "dark" : ""}`} data-mode={activeTheme} data-palette={activeScheme} style={{
         "--mesh-primary": t.a1, "--mesh-secondary": t.a2, "--mesh-deep": t.a3, "--ink": t.text, "--ink-muted": t.muted, "--solid-surface": t.surface, "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         color: t.text, overflow: "hidden"
@@ -218,7 +221,7 @@ export default function App() {
           width: 260, background: t.surface, borderRight: `1px solid ${t.line}`,
           display: "flex", flexDirection: "column", flexShrink: 0, zIndex: 10
         }}>
-          <div className="sidebar-brand"><BrandLogo scheme={scheme}/><span>PERSONAL OPERATING SYSTEM</span></div>
+          <div className="sidebar-brand"><BrandLogo scheme={activeScheme}/><span>PERSONAL OPERATING SYSTEM</span></div>
 
           {/* Quick Spotlight search button in sidebar */}
           <div style={{ padding: "14px 14px 6px" }}>
@@ -334,7 +337,7 @@ export default function App() {
             padding: "0 28px", flexShrink: 0
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span className="mobile-brand"><BrandLogo scheme={scheme}/></span><h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, textTransform: "capitalize", color: t.text }}>
+              <span className="mobile-brand"><BrandLogo scheme={activeScheme}/></span><h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, textTransform: "capitalize", color: t.text }}>
                 {tab === "focus" ? "Focus Studio" : tab}
               </h2>
               <span className="header-date" style={{ fontSize: 12, color: t.muted }}>
@@ -362,7 +365,7 @@ export default function App() {
                 </span>
               </button>
 
-              <ThemeToggle theme={theme} setTheme={next=>{setTheme(next);localStorage.setItem("lifeos_theme",next);}} t={t}/>
+              {blackHat ? <button type="button" className="black-hat-badge" onClick={()=>setTab('profile')} title="Change Black Hat mode in Profile">Black Hat</button> : <ThemeToggle theme={theme} setTheme={next=>{setTheme(next);localStorage.setItem("lifeos_theme",next);}} t={t}/>}
 
               {/* Profile Avatar button */}
               <button
@@ -493,6 +496,8 @@ export default function App() {
                 <ProfileScreen
                   t={t}
                   user={user}
+                  blackHat={blackHat}
+                  setBlackHat={value=>{setBlackHat(value);localStorage.setItem('lifeos_black_hat',String(value));}}
                   theme={theme}
                   setTheme={setTheme}
                   scheme={scheme}

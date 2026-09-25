@@ -8,7 +8,7 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendEm
 import { auth } from "../firebase";
 import { enableReminders, disableReminders, remindersEnabled, enableBrowserAlerts, disableBrowserAlerts, browserAlertsEnabled } from "../notifications";
 
-export default function ProfileScreen({ t, user, theme, setTheme, scheme, setScheme, onLogout, onOpenGuide }) {
+export default function ProfileScreen({ t, user, theme, setTheme, scheme, setScheme, blackHat=false, setBlackHat, onLogout, onOpenGuide }) {
   const [newPassword, setNewPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [pwMsg, setPwMsg] = useState("");
@@ -207,6 +207,15 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           </div>
         </Card>
 
+        <SectionLabel t={t} text="Black Hat mode" />
+        <Card t={t} variant="glass" style={{padding:20}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
+            <div><strong>Black Hat</strong><p style={{color:t.muted,fontSize:13,margin:'8px 0 0'}}>Pure monochrome. Smoked glass, silver edges, and crisp white type.</p></div>
+            <button type="button" role="switch" aria-label="Black Hat mode" aria-checked={blackHat} className="black-hat-toggle" onClick={()=>setBlackHat(!blackHat)}><span/></button>
+          </div>
+          <p style={{color:t.muted,fontSize:12,margin:'14px 0 0'}}>Available only here in Profile. Turning it off restores your previous colors and light/dark choice.</p>
+        </Card>
+        {!blackHat && <>
         {/* Theme Settings */}
         <SectionLabel t={t} text="Appearance & Colors" />
         <Card t={t} style={{ padding: 18 }}>
@@ -271,6 +280,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           </div>
         </Card>
 
+        </>}
         {/* Security & Password */}
         <SectionLabel t={t} text="Security" />
         <Card t={t} style={{ padding: 18 }}>

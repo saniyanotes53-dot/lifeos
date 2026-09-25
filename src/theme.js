@@ -68,6 +68,17 @@ for (const palette of Object.values(PALETTES)) {
   }
 }
 
+export const BLACK_HAT = {
+  name:'Black Hat', bg:'#080808', surface:'#141414', surface2:'#222222', line:'#383838',
+  text:'#F5F5F5', muted:'#B8B8B8', onAccent:'#080808',
+  a1:'#EAEAEA', a2:'#CCCCCC', a3:'#888888', a4:'#505050', a5:'#FFFFFF',
+  good:'#DADADA', warm:'#A0A0A0', heroFrom:'#282828', heroTo:'#080808',
+  actionBackground:'linear-gradient(135deg,#FAFAFA,#C8C8C8)', actionText:'#101010',
+  glass:'linear-gradient(145deg,#242424cc,#101010c9)',glassEdge:'#ffffff38',
+  glassShadow:'inset 0 1px 1px #ffffff40, inset 0 -1px 0 #ffffff0a, 0 18px 48px #0007',
+  canvas:'radial-gradient(ellipse at 15% 5%,#ffffff12,transparent 55%),radial-gradient(ellipse at 90% 90%,#ffffff08,transparent 50%),#080808'
+};
+
 export const THEME = {
   dark: PALETTES.blue.dark,
   light: PALETTES.blue.light
@@ -78,6 +89,7 @@ export const CAT_PALETTE = ["a1", "a2", "a5", "a3", "a4", "warm"];
 export const PRI_KEY = { High: "a1", Med: "a2", Low: "muted" };
 
 export function useT(mode = "dark", scheme = "blue") {
+  if (scheme === 'blackhat') return BLACK_HAT;
   const selectedPalette = PALETTES[scheme] || PALETTES.blue;
   return selectedPalette[mode] || selectedPalette.dark;
 }

@@ -26,3 +26,9 @@ it('selects the supplied logo and keeps recovery and theme controls accessible',
  fireEvent.click(screen.getByRole('button',{name:'Forgot password?'}));
  expect(screen.getByRole('form',{name:'Reset password'})).toBeTruthy();
 });
+it('keeps Black Hat monochrome and offers no entry-screen control to change it',()=>{
+ render(<AuthExperience t={useT('light','blackhat')} scheme="blackhat" setScheme={vi.fn()}/>);
+ expect(screen.queryByRole('group',{name:'Colour theme'})).toBeNull();
+ expect(screen.getByAltText('LIFE OS — Built to Keep You Ahead.').getAttribute('src')).toBe('/brand/lifeos-wordmark-white.jpg');
+ expect(useT('light','blackhat').bg).toBe('#080808');
+});
