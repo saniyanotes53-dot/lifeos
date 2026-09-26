@@ -15,7 +15,7 @@ export default function SectionReset({t,scope}){
  else if(hasGoogle)await reauthenticateWithPopup(user,new GoogleAuthProvider());
  else throw Error('This sign-in provider is not supported for reset.');
  setPassword('');
- const response=await fetch('/api/account/reset',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken(true)}`},body:JSON.stringify({scope,confirmation:phrase})});
+ const response=await fetch('/api/auth/welcome?action=reset-data',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken(true)}`},body:JSON.stringify({scope,confirmation:phrase})});
  const result=await response.json();clearSession(user.uid);if(!response.ok)throw Error(result.error||'Reset failed.');
  setMessage(result.complete?`${scope} reset complete. ${result.deleted} records removed.`:result.message);setPhrase('');
  }catch(error){setPassword('');setMessage(error.code?'Identity verification failed. Please retry.':error.message);}finally{setBusy(false);}}
