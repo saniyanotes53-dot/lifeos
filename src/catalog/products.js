@@ -10,5 +10,5 @@ export const products=[
  ['Pens','Study','https://link.amazon/B07yJ5L3T','🖊️'],
  ['Sticky notes set','Study','https://link.amazon/A00JzcsND','📝'],
  ['Laptop stand','Study','https://link.amazon/B0hy6aQYj','💻']
-].map(([name,section,url,icon])=>({name,section,url,icon}));
-export const affiliateDisclosure='Affiliate links: LIFE OS may earn a commission from qualifying purchases. Prices, availability and suitability must be checked on Amazon.';
+].map(([name,section,url,icon],i)=>({id:`product-${i+1}`,name,section,url,icon,imageUrl:'',enabled:true,tabs:section==='Focus'?['Focus','Budget']:['Tasks','Budget'],categories:section==='Focus'?['All']:['Study','Skills','Homework','Work','Office work']}));
+export const affiliateDisclosure='LIFE OS may earn a commission from qualifying purchases. Prices, availability and suitability must be checked on Amazon.';

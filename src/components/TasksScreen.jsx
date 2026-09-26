@@ -1,3 +1,5 @@
+import {useProductCatalog} from '../catalog/ProductCatalog';
+import {TASK_CATEGORIES,relatedCategory} from '../catalog/rules';
 import ProductSuggestions from './ProductSuggestions';
 import SectionReset from './SectionReset';
 import { IconBtn } from "./primitives";
@@ -10,7 +12,9 @@ import { useToast } from "./Toast";
 
 export default function TasksScreen({ t, tasks = [], userId, timetable = [], onOpenFocusWithTask }) {
   const toast = useToast();
-  const categories=['General','Study','Skills','Work','Homework','Office work','Home','Outgoing','Parties','Invitations','Travel','Personal'];
+  const {products:catalogProducts}=useProductCatalog();
+  const categories=[...new Set([...TASK_CATEGORIES,...catalogProducts.filter(p=>p.tabs.includes('Tasks')).flatMap(p=>p.categories).filter(c=>c!=='All')])];
+  const [lastCreatedCategory,setLastCreatedCategory]=useState('');
   const [category,setCategory]=useState('General');
   const [categoryFilter,setCategoryFilter]=useState('All');
   const [title, setTitle] = useState("");
@@ -58,6 +62,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
   const add = async () => {
     if (!title.trim()) return;
     await addItem(userId, "tasks", { title: title.trim(), priority: pri, category, done: false, date: todayStr() });
+    setLastCreatedCategory(relatedCategory(category,title));
     setTitle("");
     toast("Task created successfully", "success", 2000);
   };
@@ -151,6 +156,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
         </div>
 
         {/* Task Creator Input */}
+        {(relatedCategory(category,title)||lastCreatedCategory)&&<ProductSuggestions t={t} tab="Tasks" category={relatedCategory(category,title)||lastCreatedCategory}/> }
         <Card t={t} style={{ padding: 14, marginBottom: 14 }}>
           <div style={{ display: "flex", gap: 8 }}>
             <input aria-label="Task title"
@@ -396,7 +402,6 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
           This website is designed by <strong style={{ color: t.a1, fontWeight: 700 }}>Buraq Studios</strong> · Copyright all rights reserved.
         </div>
       </div>
-      <ProductSuggestions t={t} section="Study"/>
       <SectionReset t={t} scope="tasks"/>
     </Screen>
   );

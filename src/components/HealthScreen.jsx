@@ -1,3 +1,4 @@
+import ProductSuggestions from './ProductSuggestions';
 import SectionReset from './SectionReset';
 import React, { useState, useMemo, useEffect } from "react";
 import {
@@ -769,7 +770,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
         {/* Page Footer Tagline */}
         <CopyrightFooter t={t} />
       </div>
-<SectionReset t={t} scope="health"/>
+<ProductSuggestions t={t} tab="Health"/><SectionReset t={t} scope="health"/>
     </Screen>
   );
 }

@@ -1,0 +1,2 @@
+// Server-only salted verifier. Override via LIFEOS_ADMIN_PASSWORD_HASH to rotate.
+export const passwordVerifier = 'd0ef20ddc96ba2bb9a2c3fb78eacaa71:d6664c4ba3fb69632b2f0957600a43fb201cc0495b14a105049493501ba8500535481f2ea86dc0a8f61d57873046dcbcc13fa683ce8f82d0a03b7f57da4f8656';

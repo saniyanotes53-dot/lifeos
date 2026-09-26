@@ -1,0 +1,38 @@
+import React from 'react';
+import {it,expect,vi,afterEach} from 'vitest';
+import {render,screen,fireEvent,cleanup,waitFor} from '@testing-library/react';
+import ProductSuggestions from '../src/components/ProductSuggestions';
+import ProductAdmin from '../src/components/ProductAdmin';
+import {products} from '../src/catalog/products';
+vi.mock('../src/catalog/ProductCatalog',()=>({useProductCatalog:()=>({products})}));
+const t={text:'#eee',muted:'#aaa',line:'#333',surface:'#151b25',surface2:'#202936',a1:'#80b9ff',a3:'#abc'};
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+it('related products open only on click and respect task category',()=>{
+ render(<ProductSuggestions t={t} tab="Tasks" category="Study"/>);
+ expect(screen.queryByRole('dialog')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'Related Products'}));
+ expect(screen.getByRole('dialog').textContent).toContain('may earn a commission');
+ expect(screen.getAllByRole('link')).toHaveLength(5);
+ fireEvent.click(screen.getByRole('button',{name:'Close'}));
+ expect(screen.queryByRole('dialog')).toBeNull();
+});
+it('does not suggest unrelated products',()=>{render(<ProductSuggestions t={t} tab="Tasks" category="Travel"/>);expect(screen.queryByRole('button')).toBeNull();});
+it('admin keeps edits as a draft and publishes selected tab/category assignments',async()=>{
+ const calls=[];
+ vi.stubGlobal('fetch',vi.fn(async(url,options)=>{calls.push([url,options]);return {ok:true,json:async()=>({products,revision:'r1'})};}));
+ render(<ProductAdmin/>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Add product'})).toBeTruthy());
+ fireEvent.click(screen.getByRole('button',{name:'Add product'}));
+ fireEvent.change(screen.getByLabelText('Product name'),{target:{value:'Exercise mat'}});
+ fireEvent.change(screen.getByLabelText('Product link (HTTPS)'),{target:{value:'https://example.com/mat'}});
+ fireEvent.change(screen.getByLabelText('Categories (comma separated)'),{target:{value:'Fitness'}});
+ fireEvent.click(screen.getByLabelText('Tasks'));
+ fireEvent.click(screen.getByLabelText('Health'));
+ fireEvent.click(screen.getByRole('button',{name:'Apply to draft'}));
+ expect(calls.filter(([,o])=>o.method==='PUT')).toHaveLength(0);
+ fireEvent.click(screen.getByRole('button',{name:'Publish changes'}));
+ await waitFor(()=>expect(calls.filter(([,o])=>o.method==='PUT')).toHaveLength(1));
+ const payload=JSON.parse(calls.find(([,o])=>o.method==='PUT')[1].body);
+ expect(payload.products.at(-1)).toMatchObject({name:'Exercise mat',tabs:['Health'],categories:['Fitness']});
+ expect(payload.revision).toBe('r1');
+});
