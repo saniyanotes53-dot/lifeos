@@ -1,3 +1,4 @@
+import ProductSuggestions from './ProductSuggestions';
 import React, { useState, useEffect, useRef } from "react";
 import {
   Play, Pause, RotateCcw, Volume2, VolumeX, Maximize2, Minimize2,
@@ -606,6 +607,7 @@ export default function FocusStudio({ t, tasks = [], onCompleteTask, initialTask
           )}
         </div>
       </div>
+<ProductSuggestions t={t} section="Focus"/>
     </Screen>
   );
 }

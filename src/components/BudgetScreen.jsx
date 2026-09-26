@@ -1,3 +1,5 @@
+import ProductSuggestions from './ProductSuggestions';
+import SectionReset from './SectionReset';
 import React, {useState, useMemo, lazy, Suspense} from 'react';
 import TransactionEditor, {DeleteTransaction} from './TransactionEditor';
 import TransactionList, {TransactionRow} from './TransactionList';
@@ -470,6 +472,7 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
           This website is designed by <strong style={{ color: t.a1, fontWeight: 700 }}>Buraq Studios</strong> · Copyright all rights reserved.
         </div>
       </div>
+<SectionReset t={t} scope="budget"/><ProductSuggestions t={t} budget/>
     </Screen>
   );
 }

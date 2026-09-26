@@ -1,3 +1,5 @@
+import ProductSuggestions from './ProductSuggestions';
+import SectionReset from './SectionReset';
 import { IconBtn } from "./primitives";
 import React, { useState, useMemo } from "react";
 import {PlusIcon as Plus, CheckIcon as Check, XIcon as X, CalendarDotsIcon as Calendar, ClockIcon as Clock, HeadphonesIcon as Headphones, MagnifyingGlassIcon as Search, FunnelSimpleIcon as Filter, SparkleIcon as Sparkles, CheckCircleIcon as CheckCircle2, WarningCircleIcon as AlertCircle, ArrowsDownUpIcon as ArrowUpDown} from "@phosphor-icons/react";
@@ -8,6 +10,9 @@ import { useToast } from "./Toast";
 
 export default function TasksScreen({ t, tasks = [], userId, timetable = [], onOpenFocusWithTask }) {
   const toast = useToast();
+  const categories=['General','Study','Skills','Work','Homework','Office work','Home','Outgoing','Parties','Invitations','Travel','Personal'];
+  const [category,setCategory]=useState('General');
+  const [categoryFilter,setCategoryFilter]=useState('All');
   const [title, setTitle] = useState("");
   const [pri, setPri] = useState("Med");
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,6 +29,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
     let list = [...tasks];
+    if(categoryFilter!=='All')list=list.filter(x=>(x.category||'General')===categoryFilter);
 
     // Search query filter
     if (searchQuery.trim()) {
@@ -41,7 +47,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
     }
 
     return list.sort((a, b) => (a.done - b.done) || (priVal(a.priority) - priVal(b.priority)));
-  }, [tasks, searchQuery, filterTab]);
+  }, [tasks, searchQuery, filterTab, categoryFilter]);
 
   const totalCount = tasks.length;
   const completedCount = tasks.filter(x => x.done).length;
@@ -51,7 +57,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
 
   const add = async () => {
     if (!title.trim()) return;
-    await addItem(userId, "tasks", { title: title.trim(), priority: pri, done: false, date: todayStr() });
+    await addItem(userId, "tasks", { title: title.trim(), priority: pri, category, done: false, date: todayStr() });
     setTitle("");
     toast("Task created successfully", "success", 2000);
   };
@@ -93,6 +99,10 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
 
   return (
     <Screen t={t} title="Tasks & Priorities">
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:16}}>
+      <label>New task category<select aria-label="New task category" style={inputStyle(t)} value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select></label>
+      <label>Filter by category<select aria-label="Filter by category" style={inputStyle(t)} value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}>{['All',...categories].map(c=><option key={c}>{c}</option>)}</select></label>
+      </div>
       <div style={{ maxWidth: 840, margin: "0 auto" }}>
         {/* Executive Task Overview Banner */}
         <div style={{
@@ -325,6 +335,7 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
                   </div>
                   <div style={{ fontSize: 11, color: t[PRI_KEY[x.priority]] || t.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontWeight: 600 }}>{x.priority} priority</span>
+                    <select aria-label={`Category for ${x.title}`} style={{background:t.surface,color:t.text,border:0,borderRadius:8,maxWidth:130}} value={x.category||'General'} onChange={async e=>{try{await updateItem(userId,'tasks',x.id,{category:e.target.value});toast('Category updated','success');}catch{toast('Could not save category','error');}}}>{[...new Set([...categories,x.category||'General'])].map(c=><option key={c}>{c}</option>)}</select>
                     {isScheduled && (
                       <span style={{ color: t.a1, display: "flex", alignItems: "center", gap: 3 }}>
                         <Calendar size={11} /> In Timetable
@@ -385,6 +396,8 @@ export default function TasksScreen({ t, tasks = [], userId, timetable = [], onO
           This website is designed by <strong style={{ color: t.a1, fontWeight: 700 }}>Buraq Studios</strong> · Copyright all rights reserved.
         </div>
       </div>
+      <ProductSuggestions t={t} section="Study"/>
+      <SectionReset t={t} scope="tasks"/>
     </Screen>
   );
 }

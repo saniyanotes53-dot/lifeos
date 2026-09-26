@@ -1,3 +1,4 @@
+import SectionReset from './SectionReset';
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Moon, Dumbbell, Utensils, Scale, Flame, Activity, Check,
@@ -768,6 +769,7 @@ export default function HealthScreen({ t, sleep = [], workouts = [], meals = [],
         {/* Page Footer Tagline */}
         <CopyrightFooter t={t} />
       </div>
+<SectionReset t={t} scope="health"/>
     </Screen>
   );
 }
