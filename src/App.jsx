@@ -58,7 +58,7 @@ export default function App() {
   const t = useT(activeTheme, activeScheme);
 
   const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
-  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("view") === "timetable" ? "timetable" : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
+  const [tab, setTab] = useState(() => ["timetable","budget"].includes(new URLSearchParams(window.location.search).get("view")) ? new URLSearchParams(window.location.search).get("view") : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
   const [showGuideModal, setShowGuideModal] = useState(false);
 
   // Pro feature modal states

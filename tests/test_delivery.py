@@ -45,6 +45,9 @@ class DeliveryTests(unittest.TestCase):
             # 1. plain-text only email accepted
             result1 = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test only', 'idempotencyKey': 'a'*64}, SMTP)
             self.assertEqual(result1, {'accepted': True})
+            self.assertIsNotNone(messages[0]['Date'])
+            self.assertEqual(messages[0]['Auto-Submitted'], 'auto-generated')
+            self.assertEqual(messages[0]['Message-ID'], '<' + 'a'*64 + '@gmail.com>')
             self.assertFalse(messages[0].is_multipart())
             self.assertEqual(messages[0].get_content().strip(), 'Test only')
 
@@ -80,6 +83,25 @@ class DeliveryTests(unittest.TestCase):
             valid_long_html = '<p>' + 'a'*11990 + '</p>'
             result = delivery.deliver_email({'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test', 'html': valid_long_html, 'idempotencyKey': 'c'*64}, SMTP)
             self.assertEqual(result, {'accepted': True})
+
+    def test_named_reminder_sender_reply_to_and_unsubscribe(self):
+        messages = []
+        class SMTP:
+            def __init__(self, *args, **kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def login(self, *args): pass
+            def send_message(self, message): messages.append(message)
+        payload = {'to': 'recipient@example.com', 'subject': 'Reminder', 'text': 'Test', 'idempotencyKey': 'a'*64,
+                   'fromName': 'Murtaza via LIFE OS', 'replyTo': 'owner@example.com',
+                   'unsubscribeUrl': 'https://lifeos53.vercel.app/api/reminder-emails?unsubscribe=' + 'a'*64 + '.' + 'b'*64}
+        with patch.dict(os.environ, {'GMAIL_ADDRESS': 'sender@gmail.com', 'GMAIL_APP_PASSWORD': 'test password'}):
+            delivery.deliver_email(payload, SMTP)
+            self.assertEqual(messages[0]['From'], 'Murtaza via LIFE OS <sender@gmail.com>')
+            self.assertEqual(messages[0]['Reply-To'], 'owner@example.com')
+            self.assertEqual(messages[0]['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click')
+            for override in [{'replyTo': 'owner@example.com\r\nBcc: other@example.com'}, {'fromName': 'Name\nInjected'}, {'unsubscribeUrl': 'https://evil.example/unsubscribe'}]:
+                with self.assertRaises(ValueError): delivery.deliver_email({**payload, **override}, SMTP)
 
     def test_real_webpush_encryption_without_network(self):
         encode = lambda value: base64.urlsafe_b64encode(value).decode().rstrip('=')

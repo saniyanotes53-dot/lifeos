@@ -11,12 +11,15 @@
 <h1 style="font:600 30px Georgia,serif;margin:24px 0 12px">A gentle balance check.</h1>
 <p style="font-size:15px;line-height:1.7">Hello {{NAME}},</p>
 <p style="line-height:1.7;color:#826e63">{{INTRO}}</p>
+<p style="line-height:1.7"><strong>Sent on behalf of:</strong><br>{{SENDER}}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff1e9;border:1px solid #f0d3c0;border-radius:18px"><tr><td style="padding:22px">
 <p style="margin:0 0 12px;font-weight:bold;color:#783510">{{TITLE}}</p>
+<p style="line-height:1.7;margin:0 0 8px"><strong>Borrower / owes:</strong> {{BORROWER}}<br><strong>Lender / owed to:</strong> {{LENDER}}</p>
 <div style="line-height:1.8;font-size:15px">{{DETAILS}}</div>
 </td></tr></table>
 <p style="line-height:1.7;color:#826e63;font-size:13px">{{DUE}}</p>
 <p style="margin:26px 0"><a href="https://lifeos53.vercel.app/?view=budget" style="display:inline-block;background:#2f6fed;color:#fff;text-decoration:none;padding:15px 24px;border-radius:12px;font-weight:bold">Open Life OS →</a></p>
-<p style="line-height:1.7;font-size:12px;color:#826e63">Already paid, or something looks incorrect? Contact the person who recorded this balance to mark it settled or turn off reminders. This reminder does not collect a payment. Opening Life OS shows only records available to your account.</p>
+<p style="line-height:1.7;font-size:12px;color:#826e63">Already paid, or something looks incorrect? Contact {{SENDER}} to correct this record or mark it settled. This email was generated from their LIFE OS record, not independently verified by LIFE OS. This reminder does not collect a payment. Opening Life OS shows only records available to your account.</p>
+<p style="font-size:12px;line-height:1.7"><a href="{{UNSUBSCRIBE}}" style="color:#783510">Stop these payment reminders</a> · No sign-in required. Stopping reminders does not change the balance.</p>
 </td></tr><tr><td style="padding:20px 30px;background:#f9f6f0;border-top:1px solid #e6d9ce;font-size:11px;color:#826e63">Life OS · Buraq Studios<br><br>Small reminders. Better days.</td></tr>
 </table></td></tr></table></body></html>

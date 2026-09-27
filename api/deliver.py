@@ -6,6 +6,7 @@ import re
 import smtplib
 import ssl
 from email.message import EmailMessage
+from email.utils import formataddr, formatdate
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
@@ -51,13 +52,26 @@ def deliver_email(payload, smtp_factory=smtplib.SMTP_SSL):
     if not isinstance(subject, str) or not 1 <= len(subject) <= 160 or '\r' in subject or '\n' in subject or not isinstance(body, str) or not 1 <= len(body) <= 6000:
         raise ValueError('Invalid email content.')
     message = EmailMessage()
-    message['From'] = f'Life OS <{sender}>'
+    from_name = payload.get('fromName', 'Life OS')
+    if not isinstance(from_name, str) or not 1 <= len(from_name) <= 100 or re.search(r'[\x00-\x1f\x7f]', from_name):
+        raise ValueError('Invalid sender name.')
+    message['From'] = formataddr((from_name, sender))
+    message['Date'] = formatdate(localtime=False, usegmt=True)
+    message['Auto-Submitted'] = 'auto-generated'
+    if payload.get('replyTo'):
+        message['Reply-To'] = validate_email(payload['replyTo'])
+    unsubscribe = payload.get('unsubscribeUrl')
+    if unsubscribe:
+        if not isinstance(unsubscribe, str) or not re.fullmatch(r'https://lifeos53\.vercel\.app/api/reminder-emails\?unsubscribe=[a-f0-9]{64}\.[a-f0-9]{64}', unsubscribe):
+            raise ValueError('Invalid reminder preferences URL.')
+        message['List-Unsubscribe'] = '<' + unsubscribe + '>'
+        message['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
     message['To'] = recipient
     message['Subject'] = subject
     key = payload.get('idempotencyKey', '')
     if not re.fullmatch(r'[a-f0-9]{64}', key):
         raise ValueError('Missing delivery identifier.')
-    message['Message-ID'] = f'<{key}@lifeos53.vercel.app>'
+    message['Message-ID'] = f'<{key}@{sender.rsplit("@", 1)[1]}>'
     message.set_content(body)
     html = payload.get('html')
     if html is not None:
