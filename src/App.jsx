@@ -1,3 +1,4 @@
+import ReminderSetup from './components/ReminderSetup';
 import {LiquidGlassCard} from './components/ui/liquid-glass';
 import {GlassSelection,GlassPage} from './components/GlassMotion';
 import BrandLogo from './components/BrandLogo';
@@ -135,6 +136,7 @@ export default function App() {
   }, [user]);
 
   const handleLogout = async () => {
+    try{sessionStorage.removeItem(`lifeos_reminder_setup_v1_${user.uid}`);}catch{}
     await disableReminders(user).catch(() => {});
     await logout();
     setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
@@ -167,6 +169,7 @@ export default function App() {
   // Logged In: Full Desktop / Tablet / Mobile Website Layout wrapped in ToastProvider
   return (
     <ToastProvider t={t}>
+      <ReminderSetup key={user.uid} t={t} user={user}/>
       <div className={`app-shell ${activeTheme === "dark" ? "dark" : ""}`} data-mode={activeTheme} data-palette={activeScheme} style={{
         "--mesh-primary": t.a1, "--mesh-secondary": t.a2, "--mesh-deep": t.a3, "--ink": t.text, "--ink-muted": t.muted, "--solid-surface": t.surface, "--focus-color": t.a1, "--glass-surface": t.glass, "--glass-edge": t.glassEdge, "--glass-shadow": t.glassShadow, "--glass-accent": t.a1 + "22", display: "flex", minHeight: "100vh", width: "100%", background: t.canvas,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",

@@ -9,7 +9,7 @@ import { encodeFirestoreFields, lookupAuthUser } from './password-reset.js';
 let cachedWelcomeHtml = null;
 
 export function renderWelcomeEmail(displayName) {
-  const trimmed = (displayName || '').trim();
+  const trimmed = String(displayName || '').replace(/[\r\n\x00-\x1f]/g,' ').trim().slice(0,100);
   const firstName = trimmed ? trimmed.split(/\s+/)[0] : '';
   const greeting = firstName ? `Welcome, ${firstName}` : 'Welcome to Life OS';
   const subject = 'Welcome to Life OS · Your calmer day starts here';
@@ -23,7 +23,8 @@ export function renderWelcomeEmail(displayName) {
     }
   }
 
-  const html = cachedWelcomeHtml.replace(/\{\{GREETING\}\}/g, greeting);
+  const escapedGreeting=greeting.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const html = cachedWelcomeHtml.replace(/\{\{GREETING\}\}/g, () => escapedGreeting);
   const text = `Life OS\n\n${greeting}\n\nA calmer day starts here.\n\nYou can now:\n- organize your day and tasks\n- plan timetable blocks\n- track spending and budgets\n- manage routines available in Life OS\n- use your Life OS assistant\n- receive scheduled reminders\n\nOpen Life OS: https://lifeos53.vercel.app/\n\nLife OS · Buraq Studios\n`;
 
   return { subject, html, text, greeting };
@@ -46,17 +47,19 @@ async function defaultFirestoreRequest(path, options = {}) {
   if (res.status === 409 || res.status === 412) return { conflict: true };
   if (res.status === 204) return {};
   if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    if (error.error?.status === 'FAILED_PRECONDITION' || error.error?.status === 'ALREADY_EXISTS') return { conflict: true };
     throw Object.assign(new Error(`Firestore request failed (${res.status}).`), { status: res.status });
   }
   const json = await res.json();
-  if (json.fields) return decode({ mapValue: { fields: json.fields } });
+  if (json.fields) return {...decode({ mapValue: { fields: json.fields } }),__updateTime:json.updateTime};
   return json;
 }
 
 export const defaultWelcomeDb = {
   get: async path => defaultFirestoreRequest(path, { method: 'GET' }),
-  claim: async (path, data) =>
-    defaultFirestoreRequest(`${path}?currentDocument.exists=false`, {
+  claim: async (path, data, revision) =>
+    defaultFirestoreRequest(`${path}?${revision?'currentDocument.updateTime='+encodeURIComponent(revision):'currentDocument.exists=false'}`, {
       method: 'PATCH',
       body: JSON.stringify({ fields: encodeFirestoreFields(data) })
     }),
@@ -87,20 +90,15 @@ export async function sendWelcomeEmailForUser(userRecord, overrides = {}) {
   const receiptPath = `users/${uid}/emailReceipts/welcome`;
 
   // Check if welcome email has already been sent
-  let existing = null;
-  try {
-    existing = await db.get(receiptPath);
-  } catch (err) {
-    console.warn('[welcome-mail.check]', err.message);
-  }
+  const existing = await db.get(receiptPath);
 
   if (existing && (existing.sent || existing.status === 'sent')) {
     return { ok: true, alreadySent: true };
   }
 
-  // If another request claimed recently (<60s) and is in-flight, avoid duplicate send
-  if (existing && existing.status === 'pending' && existing.createdAt && now - existing.createdAt < 60000) {
-    return { ok: true, alreadySent: true, inProgress: true };
+  // If another request claimed recently (<120s) and is in-flight, avoid duplicate send
+  if (existing && existing.status === 'pending' && existing.createdAt && now - existing.createdAt < 120000) {
+    return { ok: true, inProgress: true, retryAfterSeconds: 120 };
   }
 
   // Attempt atomic claim using Firestore precondition
@@ -108,11 +106,11 @@ export async function sendWelcomeEmailForUser(userRecord, overrides = {}) {
     status: 'pending',
     createdAt: now,
     channel: 'email'
-  });
+  }, existing?.__updateTime);
 
   if (claim?.conflict) {
     // Another concurrent call already claimed the receipt
-    return { ok: true, alreadySent: true, inProgress: true };
+    return { ok: true, inProgress: true, retryAfterSeconds: 120 };
   }
 
   const { subject, html, text } = renderWelcomeEmail(displayName);

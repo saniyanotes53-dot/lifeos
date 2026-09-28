@@ -319,3 +319,39 @@ test('failed welcome send can safely retry where appropriate', async () => {
   assert.ok(finalReceipt);
   assert.equal(finalReceipt.sent, true);
 });
+
+
+test('educational email domains are accepted without special filtering', async () => {
+ for (const email of ['student@college.edu','student@college.edu.in']) {
+  let recipient;
+  await sendWelcomeEmailForUser({uid:email,email},{db:createMockStore(),sendEmail:async p=>{recipient=p.to;}});
+  assert.equal(recipient,email);
+ }
+});
+
+test('stale pending receipt is reclaimed with its revision and only one concurrent request sends', async () => {
+ let receipt={status:'pending',createdAt:1,__updateTime:'old'}, sends=0;
+ const db={get:async()=>({...receipt}),claim:async(path,data,revision)=>{
+  if(revision!==receipt.__updateTime)return {conflict:true};
+  receipt={...data,__updateTime:'new'};return {};
+ },set:async(path,data)=>{receipt=data;},delete:async()=>{receipt=null;}};
+ const user={uid:'stale',email:'student@college.edu'};
+ const results=await Promise.all([1,2].map(()=>sendWelcomeEmailForUser(user,{db,now:200000,sendEmail:async()=>{sends++;}})));
+ assert.equal(sends,1);assert.equal(receipt.status,'sent');
+ assert.ok(results.some(r=>r.inProgress));assert.ok(results.some(r=>r.sent));
+});
+
+test('fresh pending receipt reports in progress, never already sent', async () => {
+ const db=createMockStore();await db.set('users/fresh/emailReceipts/welcome',{status:'pending',createdAt:1000});
+ const result=await sendWelcomeEmailForUser({uid:'fresh',email:'s@school.edu'},{db,now:2000,sendEmail:async()=>assert.fail('must not send')});
+ assert.equal(result.inProgress,true);assert.equal(result.alreadySent,undefined);
+});
+
+test('receipt read failures do not risk duplicate sending', async () => {
+ await assert.rejects(sendWelcomeEmailForUser({uid:'u',email:'u@example.com'},{db:{get:async()=>{throw Error('unavailable');}},sendEmail:async()=>assert.fail('must not send')}),/unavailable/);
+});
+
+test('profile markup is escaped in welcome email HTML', () => {
+ const {html}=renderWelcomeEmail('<img/src=x>');
+ assert.ok(html.includes('&lt;img/src=x&gt;'));assert.ok(!html.includes('<img/src=x>'));
+});

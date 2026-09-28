@@ -3,7 +3,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  getAdditionalUserInfo,
   onAuthStateChanged,
   signOut,
   updateProfile,
@@ -13,23 +12,21 @@ import { auth } from "./firebase.js";
 
 const googleProvider = new GoogleAuthProvider();
 
-export async function sendWelcomeEmail(user) {
-  if (!user || typeof user.getIdToken !== "function") return { ok: false };
-  try {
-    const token = await user.getIdToken();
-    const res = await fetch("/api/auth/welcome", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      }
-    });
-    const data = await res.json().catch(() => ({}));
-    return data;
-  } catch (err) {
-    console.warn("[auth.welcome]", err.message);
-    return { ok: false, error: err.message };
-  }
+const welcomeInFlight=new Map();
+export function sendWelcomeEmail(user) {
+  if (!user || typeof user.getIdToken !== 'function') return Promise.resolve({ok:false,error:'Sign in to check your welcome email.'});
+  if(welcomeInFlight.has(user.uid))return welcomeInFlight.get(user.uid);
+  const task=(async()=>{
+    try {
+      const token=await user.getIdToken();
+      const res=await fetch('/api/auth/welcome',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(45000)});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw Error(data.error||'The welcome email could not be submitted. Try again.');
+      return data;
+    } catch(err) {return {ok:false,error:err.name==='TimeoutError'?'The welcome email request timed out. Try checking again in two minutes.':err.message};}
+    finally {welcomeInFlight.delete(user.uid);}
+  })();
+  welcomeInFlight.set(user.uid,task);return task;
 }
 
 export async function registerWithEmail(name, email, password) {
@@ -42,15 +39,13 @@ export async function registerWithEmail(name, email, password) {
 
 export async function loginWithEmail(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
+  sendWelcomeEmail(cred.user);
   return cred.user;
 }
 
 export async function loginWithGoogle() {
   const cred = await signInWithPopup(auth, googleProvider);
-  const additional = getAdditionalUserInfo(cred);
-  if (additional?.isNewUser) {
-    sendWelcomeEmail(cred.user).catch(err => console.warn('[auth.welcome]', err.message));
-  }
+  sendWelcomeEmail(cred.user);
   return cred.user;
 }
 
