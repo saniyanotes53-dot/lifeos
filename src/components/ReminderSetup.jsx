@@ -4,27 +4,24 @@ import {Modal,GhostButton} from './primitives';
 import {notificationSettings,readDeliveryPreferences,setEmailDelivery,registerPush,getPushState} from '../cloud-notifications';
 import {enableReminders,remindersEnabled} from '../notifications';
 import {sendWelcomeEmail} from '../auth';
+import {consumeReminderInvitation} from '../reminder-onboarding';
 
 export default function ReminderSetup({t,user}) {
- const [open,setOpen]=useState(false),[stamp,setStamp]=useState('');
+ const [open,setOpen]=useState(false);
  const [config,setConfig]=useState(null),[email,setEmail]=useState(false),[inApp,setInApp]=useState(()=>remindersEnabled(user.uid));
  const [push,setPush]=useState(()=>getPushState(user.uid)),[busy,setBusy]=useState(''),[notice,setNotice]=useState(''),[loadError,setLoadError]=useState('');
  const [welcome,setWelcome]=useState(null),[welcomeBusy,setWelcomeBusy]=useState(false);
- const key=`lifeos_reminder_setup_v1_${user.uid}`;
  useEffect(()=>{
   let active=true;
-  user.getIdTokenResult().then(result=>{
-   if(!active)return;const login=String(result.claims.auth_time||'session');setStamp(login);
-   let seen;try{seen=sessionStorage.getItem(key);}catch{}
-   setOpen(seen!==login);
-  }).catch(()=>{if(active){setStamp('session');setOpen(true);}});
+  const invite=()=>{if(consumeReminderInvitation(user.uid))setOpen(true);};
+  window.addEventListener('lifeos-login-complete',invite);invite();
   Promise.all([notificationSettings(),readDeliveryPreferences(user.uid)]).then(([c,p])=>{if(active){setConfig(c);setEmail(Boolean(p.emailEnabled));}}).catch(e=>{if(active)setLoadError(e.message);});
   sendWelcomeEmail(user).then(result=>{if(active)setWelcome(result);});
   const sync=()=>{setPush(getPushState(user.uid));setInApp(remindersEnabled(user.uid));};
   window.addEventListener('lifeos-push-status-change',sync);window.addEventListener('focus',sync);
-  return()=>{active=false;window.removeEventListener('lifeos-push-status-change',sync);window.removeEventListener('focus',sync);};
+  return()=>{active=false;window.removeEventListener('lifeos-login-complete',invite);window.removeEventListener('lifeos-push-status-change',sync);window.removeEventListener('focus',sync);};
  },[user.uid]);
- const close=()=>{if(busy)return;try{sessionStorage.setItem(key,stamp);}catch{}setOpen(false);};
+ const close=()=>{if(!busy)setOpen(false);};
  const run=async(channel,fn)=>{if(busy)return;setBusy(channel);setNotice('');try{await fn();}catch(e){setNotice(e.message);}finally{setBusy('');}};
  if(!open)return null;
  const row={padding:16,borderRadius:16,background:t.surface2,display:'grid',gap:9};

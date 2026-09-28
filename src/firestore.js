@@ -91,3 +91,8 @@ export async function importTransactions(uid,rows,onProgress){
   })
  },onProgress);
 }
+
+export async function saveHealthRecord(uid,name,id,data){
+ if(!['healthSettings','mealPlans','meals','workouts'].includes(name)||!id||id.includes('/'))throw Error('Invalid health record.');
+ return trackedWrite(uid,name,tx=>tx.set(doc(db,'users',uid,name,id),data));
+}

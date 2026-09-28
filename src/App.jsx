@@ -136,7 +136,6 @@ export default function App() {
   }, [user]);
 
   const handleLogout = async () => {
-    try{sessionStorage.removeItem(`lifeos_reminder_setup_v1_${user.uid}`);}catch{}
     await disableReminders(user).catch(() => {});
     await logout();
     setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
@@ -459,6 +458,7 @@ export default function App() {
 
               {tab === "health" && (
                 <HealthScreen
+                  user={user}
                   t={t}
                   initialView={healthView}
                   sleep={sleep}

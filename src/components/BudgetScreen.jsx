@@ -125,7 +125,7 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
 
         <div className="budget-toolbar">
           <div style={{display:'flex',gap:8}}>{[['overview','Overview'],['transactions','Transactions']].map(([key,label])=><GhostButton key={key} t={t} aria-pressed={subView===key} style={{width:'auto',borderColor:subView===key?t.a1:t.line}} onClick={()=>setSubView(key)}>{label}</GhostButton>)}<GhostButton t={t} style={{width:'auto'}} onClick={()=>setMenuOpen(true)}>More</GhostButton></div>
-          <div style={{display:'flex',gap:8}}><GhostButton t={t} onClick={()=>setShowImportModal(true)} style={{width:'auto'}}><Upload size={16}/> Import CSV / PDF</GhostButton><PrimaryButton t={t} onClick={()=>{setEditingTx(null);setShowAddTx(true);}} style={{width:'auto'}}><Plus size={16}/> Add transaction</PrimaryButton></div>
+          <div style={{display:'flex',gap:8}}><GhostButton t={t} onClick={()=>setShowImportModal(true)} style={{width:'auto'}}><Upload size={16}/> Import / scan screenshot</GhostButton><PrimaryButton t={t} onClick={()=>{setEditingTx(null);setShowAddTx(true);}} style={{width:'auto'}}><Plus size={16}/> Add transaction</PrimaryButton></div>
         </div>
         {notice&&<p role="status" style={{color:t.good}}>{notice} <button className="link-button" onClick={()=>setNotice('')}>Dismiss</button></p>}
 

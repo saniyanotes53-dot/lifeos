@@ -26,3 +26,5 @@ export async function importTransactions(uid,rows,onProgress){
   commit:async entries=>{let saved=0;for(const entry of entries){if(!(data.transactions||[]).some(row=>row.id===entry.id)){data.transactions=[...(data.transactions||[]),{...entry.data,id:entry.id}];saved++;}}emit('transactions');return {saved,skipped:entries.length-saved};}
  },onProgress);
 }
+
+export async function saveHealthRecord(uid,name,id,item){data[name]=[...(data[name]||[]).filter(x=>x.id!==id),{...item,id}];emit(name);}

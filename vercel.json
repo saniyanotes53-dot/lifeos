@@ -16,7 +16,8 @@
     },
     "api/**/*.py": {
       "maxDuration": 30,
-      "excludeFiles": "{node_modules/**,dist/**,tests/**,.git/**}"
+      "excludeFiles": "{node_modules/**,dist/**,tests/**,.git/**}",
+      "includeFiles": "server/nutrition/**"
     }
   }
 }

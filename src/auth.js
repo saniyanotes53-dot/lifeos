@@ -10,6 +10,8 @@ import {
 } from "firebase/auth";
 import { auth } from "./firebase.js";
 
+import {inviteReminderSetup} from './reminder-onboarding.js';
+
 const googleProvider = new GoogleAuthProvider();
 
 const welcomeInFlight=new Map();
@@ -33,18 +35,21 @@ export async function registerWithEmail(name, email, password) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   if (name) await updateProfile(cred.user, { displayName: name });
   sendEmailVerification(cred.user).catch(error => console.warn('[auth.verification]', { code: error.code }));
+  inviteReminderSetup(cred.user.uid);
   sendWelcomeEmail(cred.user).catch(err => console.warn('[auth.welcome]', err.message));
   return cred.user;
 }
 
 export async function loginWithEmail(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
+  inviteReminderSetup(cred.user.uid);
   sendWelcomeEmail(cred.user);
   return cred.user;
 }
 
 export async function loginWithGoogle() {
   const cred = await signInWithPopup(auth, googleProvider);
+  inviteReminderSetup(cred.user.uid);
   sendWelcomeEmail(cred.user);
   return cred.user;
 }

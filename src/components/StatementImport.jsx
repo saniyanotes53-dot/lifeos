@@ -3,6 +3,7 @@ import {Upload} from 'lucide-react';
 import {Card,Modal,IconBtn,PrimaryButton,GhostButton,Field} from './primitives';
 import {inputStyle} from '../theme';
 import {parseStatementCsv,prepareImportRows,transactionIssues} from '../utils/statement-import.js';
+import {screenshotPayload} from '../utils/image-statement';
 import {scanStatementPage} from '../assistant/api';
 import {importTransactions} from '../firestore';
 import {transactionError} from './TransactionEditor';
@@ -20,12 +21,14 @@ export default function StatementImport({t,user,tx,wallets=[],onClose,onImported
         if(file.size>10*1024*1024)throw new Error('Choose a file smaller than 10 MB.');
         if(/\.csv$/i.test(file.name))result=parseStatementCsv(await file.text(),order);
         else if(/\.pdf$/i.test(file.name))result=await (await import('../utils/pdf-statement.js')).readPdfStatement(file,user,setStatus);
-        else throw new Error('Choose a .csv or .pdf statement.');
+        else if(['image/png','image/jpeg','image/webp'].includes(file.type))result=await scanStatementPage(user,await screenshotPayload(file));
+        else throw new Error('Choose CSV, PDF, PNG, JPEG or WebP.');
       }else{
-        if(!text.trim())throw new Error('Choose a CSV or PDF file first.');
+        if(!text.trim())throw new Error('Choose a statement or screenshot first.');
         result=await scanStatementPage(user,{text});
         if(!result.rows?.length)throw new Error('No completed transactions found. Include dates, amounts and payment direction.');
       }
+      if(!result.rows?.length)throw Error('No completed transactions found. Try a clearer image with the full date, amount and payment direction.');
       setRows(prepareImportRows(result.rows,tx));setWarnings(result.warnings||[]);setPage(0);setStatus('Review the detected transactions before saving.');
     }catch(e){setError(e.message);setStatus('');}finally{lock.current=false;setBusy(false);}
   }
@@ -41,15 +44,15 @@ export default function StatementImport({t,user,tx,wallets=[],onClose,onImported
     finally{lock.current=false;setBusy(false);}
   }
   return <Modal title="Import statement" onClose={close}><Card t={t} style={{width:'100%',maxWidth:920}}>
-    <div className="dialog-heading"><div><h2>Import statement</h2><p style={{color:t.muted,margin:'4px 0'}}>Bank and Google Pay · CSV or PDF</p></div><IconBtn t={t} label="Close import" disabled={busy} onClick={close}>×</IconBtn></div>
+    <div className="dialog-heading"><div><h2>Import statement</h2><p style={{color:t.muted,margin:'4px 0'}}>Bank and Google Pay · CSV, PDF or screenshot</p></div><IconBtn t={t} label="Close import" disabled={busy} onClick={close}>×</IconBtn></div>
     {!rows.length?<>
       <div style={{border:`1px dashed ${t.a1}`,borderRadius:14,padding:24,textAlign:'center',background:t.surface2}}>
-        <Upload color={t.a1} size={28}/><p>{file?file.name:'Choose a downloaded statement'}</p>
-        <input aria-label="Statement file" type="file" accept=".csv,.pdf,text/csv,application/pdf" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]||null);setError('');}} style={{display:'block',maxWidth:'100%',margin:'12px auto'}}/>
+        <Upload color={t.a1} size={28}/><p>{file?file.name:'Choose a statement or payment screenshot'}</p>
+        <input aria-label="Statement file" type="file" accept=".csv,.pdf,.png,.jpg,.jpeg,.webp,text/csv,application/pdf,image/png,image/jpeg,image/webp" disabled={busy} onChange={e=>{setFile(e.target.files?.[0]||null);setError('');}} style={{display:'block',maxWidth:'100%',margin:'12px auto'}}/>
         <small style={{color:t.muted}}>Up to 10 MB · PDFs up to 30 pages</small>
       </div>
       {file&&/\.csv$/i.test(file.name)&&<Field t={t} label="CSV date format"><select aria-label="CSV date format" disabled={busy} value={order} onChange={e=>setOrder(e.target.value)} style={inputStyle(t)}><option value="DMY">Day / Month / Year (India)</option><option value="MDY">Month / Day / Year</option></select></Field>}
-      <p style={{fontSize:13,color:t.muted,lineHeight:1.6}}>CSV files are read on your device. PDF pages and pasted text are sent to Google Gemini for scanning. Nothing is saved to your budget until you review and import it.</p>
+      <p style={{fontSize:13,color:t.muted,lineHeight:1.6}}>CSV files are read on your device. Screenshots, PDF pages and pasted text are sent to Google Gemini for scanning. Nothing is saved to your budget until you review and import it.</p>
       <details><summary style={{cursor:'pointer',marginBottom:12}}>Or paste statement text</summary><textarea aria-label="Statement text" disabled={busy||Boolean(file)} rows={5} maxLength={40000} value={text} onChange={e=>setText(e.target.value)} style={inputStyle(t)} placeholder="Paste transaction dates, descriptions, amounts and debit / credit labels…"/></details>
       <PrimaryButton t={t} disabled={busy||(!file&&!text.trim())} onClick={scan}>{busy?'Scanning…':'Scan statement'}</PrimaryButton>
     </>:<>

@@ -4,7 +4,7 @@ import {auth} from '../firebase';
 import {clearSession} from '../assistant/session';
 import {Modal,GhostButton,PrimaryButton} from './primitives';
 import {inputStyle} from '../theme';
-const descriptions={tasks:'All tasks and timetable blocks, including their scheduled task reminders.',budget:'All transactions, wallets, category budgets, loans, subscriptions and bill splits. Associated repayment reminders stop when those records are removed.',health:'All sleep logs, workouts, meals and body measurements.'};
+const descriptions={tasks:'All tasks and timetable blocks, including their scheduled task reminders.',budget:'All transactions, wallets, category budgets, loans, subscriptions and bill splits. Associated repayment reminders stop when those records are removed.',health:'All sleep logs, workouts, meals, meal plans, health preferences and body measurements.'};
 export default function SectionReset({t,scope}){
  const [open,setOpen]=useState(false),[password,setPassword]=useState(''),[phrase,setPhrase]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const hasPassword=auth.currentUser?.providerData?.some(p=>p.providerId==='password');

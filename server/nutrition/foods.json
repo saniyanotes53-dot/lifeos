@@ -1,0 +1,157 @@
+{
+  "retrievedAt": "2026-09-28T07:31:52.260245+00:00",
+  "foods": {
+    "banana": {
+      "id": 173944,
+      "name": "Banana",
+      "allergens": [],
+      "description": "Bananas, raw",
+      "nutrients": {
+        "cal": 89.0,
+        "protein": 1.09,
+        "fat": 0.33,
+        "carbs": 22.84,
+        "fiber": 2.6,
+        "calcium": 5.0,
+        "iron": 0.26,
+        "potassium": 358.0
+      }
+    },
+    "lentils": {
+      "id": 172421,
+      "name": "Lentils, cooked",
+      "allergens": [
+        "legumes"
+      ],
+      "description": "Lentils, mature seeds, cooked, boiled, without salt",
+      "nutrients": {
+        "cal": 116.0,
+        "protein": 9.02,
+        "fat": 0.38,
+        "carbs": 20.13,
+        "fiber": 7.9,
+        "calcium": 19.0,
+        "iron": 3.33,
+        "potassium": 369.0
+      }
+    },
+    "oats": {
+      "id": 169705,
+      "name": "Oats, dry",
+      "allergens": [
+        "gluten"
+      ],
+      "description": "Oats (Includes foods for USDA's Food Distribution Program)",
+      "nutrients": {
+        "cal": 389.0,
+        "protein": 16.89,
+        "fat": 6.9,
+        "carbs": 66.27,
+        "fiber": 10.6,
+        "calcium": 54.0,
+        "iron": 4.72,
+        "potassium": 429.0
+      }
+    },
+    "rice": {
+      "id": 169756,
+      "name": "Rice, dry",
+      "allergens": [],
+      "description": "Rice, white, long-grain, regular, raw, unenriched",
+      "nutrients": {
+        "cal": 365.0,
+        "protein": 7.13,
+        "fat": 0.66,
+        "carbs": 79.95,
+        "fiber": 1.3,
+        "calcium": 28.0,
+        "iron": 0.8,
+        "potassium": 115.0
+      }
+    },
+    "spinach": {
+      "id": 168462,
+      "name": "Spinach, raw",
+      "allergens": [],
+      "description": "Spinach, raw",
+      "nutrients": {
+        "cal": 23.0,
+        "protein": 2.86,
+        "fat": 0.39,
+        "carbs": 3.63,
+        "fiber": 2.2,
+        "calcium": 99.0,
+        "iron": 2.71,
+        "potassium": 558.0
+      }
+    },
+    "egg": {
+      "id": 173424,
+      "name": "Egg, hard-boiled",
+      "allergens": [
+        "eggs"
+      ],
+      "description": "Egg, whole, cooked, hard-boiled",
+      "nutrients": {
+        "cal": 155.0,
+        "protein": 12.58,
+        "fat": 10.61,
+        "carbs": 1.12,
+        "fiber": 0.0,
+        "calcium": 50.0,
+        "iron": 1.19,
+        "potassium": 126.0
+      }
+    },
+    "chickpeas": {
+      "id": 173757,
+      "name": "Chickpeas, cooked",
+      "allergens": [
+        "legumes"
+      ],
+      "description": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",
+      "nutrients": {
+        "cal": 164.0,
+        "protein": 8.86,
+        "fat": 2.59,
+        "carbs": 27.42,
+        "fiber": 7.6,
+        "calcium": 49.0,
+        "iron": 2.89,
+        "potassium": 291.0
+      }
+    },
+    "apple": {
+      "id": 171688,
+      "name": "Apple with skin",
+      "allergens": [],
+      "description": "Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",
+      "nutrients": {
+        "cal": 52.0,
+        "protein": 0.26,
+        "fat": 0.17,
+        "carbs": 13.81,
+        "fiber": 2.4,
+        "calcium": 6.0,
+        "iron": 0.12,
+        "potassium": 107.0
+      }
+    },
+    "carrot": {
+      "id": 170393,
+      "name": "Carrot, raw",
+      "allergens": [],
+      "description": "Carrots, raw",
+      "nutrients": {
+        "cal": 41.0,
+        "protein": 0.93,
+        "fat": 0.24,
+        "carbs": 9.58,
+        "fiber": 2.8,
+        "calcium": 33.0,
+        "iron": 0.3,
+        "potassium": 320.0
+      }
+    }
+  }
+}

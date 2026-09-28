@@ -124,7 +124,12 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(payload).encode())
 
     def do_GET(self):
-        self.respond(200, {'service': 'lifeos-python-delivery', **configuration()})
+        try:
+            from server.nutrition.engine import build_plan
+            nutrition_ready = True
+        except ImportError:
+            nutrition_ready = False
+        self.respond(200, {'service': 'lifeos-python-delivery', 'nutritionReady': nutrition_ready, **configuration()})
 
     def do_POST(self):
         if not authorized(self.headers.get('Authorization')):
@@ -136,7 +141,10 @@ class handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError('Invalid request.')
-            if payload.get('channel') == 'email':
+            if payload.get('channel') == 'nutrition':
+                from server.nutrition.engine import build_plan
+                result = build_plan(payload.get('context', {}))
+            elif payload.get('channel') == 'email':
                 result = deliver_email(payload)
             elif payload.get('channel') == 'push':
                 result = deliver_push(payload)
