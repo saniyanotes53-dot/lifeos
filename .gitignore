@@ -4,3 +4,9 @@ node_modules/
 lifeos-notification-secrets.json
 __pycache__/
 *.patch
+
+.env.*
+!.env.example
+*.pem
+*.key
+*service-account*.json

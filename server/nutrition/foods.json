@@ -152,6 +152,40 @@
         "iron": 0.3,
         "potassium": 320.0
       }
+    },
+    "chicken": {
+      "id": 171477,
+      "name": "Chicken breast, roasted",
+      "allergens": [],
+      "description": "Chicken, broilers or fryers, breast, meat only, cooked, roasted",
+      "nutrients": {
+        "cal": 165.0,
+        "protein": 31.02,
+        "fat": 3.57,
+        "carbs": 0.0,
+        "fiber": 0.0,
+        "calcium": 15.0,
+        "iron": 1.04,
+        "potassium": 256.0
+      }
+    },
+    "salmon": {
+      "id": 175168,
+      "name": "Salmon, cooked",
+      "allergens": [
+        "fish"
+      ],
+      "description": "Fish, salmon, Atlantic, farmed, cooked, dry heat",
+      "nutrients": {
+        "cal": 206.0,
+        "protein": 22.1,
+        "fat": 12.35,
+        "carbs": 0.0,
+        "fiber": 0.0,
+        "calcium": 15.0,
+        "iron": 0.34,
+        "potassium": 384.0
+      }
     }
   }
 }

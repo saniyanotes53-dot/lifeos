@@ -107,5 +107,5 @@ export default async function handler(req,res){
    }
   }
   return res.json({accepted});
- }catch(error){console.error('[notify.due]',{accepted,message:error.message});return res.status(502).json({error:'Some reminders were not delivered. Check server logs.',accepted});}
+ }catch(error){console.error('[notify.due]',{accepted,code:error.code||'delivery-failed'});return res.status(502).json({error:'Some reminders were not delivered. Check server logs.',accepted});}
 }

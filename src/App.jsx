@@ -1,3 +1,4 @@
+import {clearSession} from './assistant/session';
 import ReminderSetup from './components/ReminderSetup';
 import {LiquidGlassCard} from './components/ui/liquid-glass';
 import {GlassSelection,GlassPage} from './components/GlassMotion';
@@ -103,7 +104,7 @@ export default function App() {
   useEffect(() => {
     if (!user?.uid) return;
     ensureUserProfile(user).catch((error) => {
-      console.error("Unable to create the Firestore user profile:", error);
+      console.error("[profile.create]", {code:error.code||"failed"});
     });
   }, [user]);
 
@@ -137,6 +138,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await disableReminders(user).catch(() => {});
+    if(user?.uid)clearSession(user.uid);
     await logout();
     setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
     setTasks([]); setSleep([]); setWorkouts([]); setMeals([]);

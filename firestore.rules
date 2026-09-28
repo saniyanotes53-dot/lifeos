@@ -1,13 +1,20 @@
-// firestore.rules
-// Paste this into Firebase Console → Firestore Database → Rules, replacing
-// the default "test mode" rules. This makes sure each user can only ever
-// read or write their own data (tasks, budget, sleep, etc).
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /users/{uid} {
+      allow read, create, update: if owner(uid);
+      // Account removal is an authenticated server operation; no orphaned subcollections.
+      allow delete: if false;
+      match /{collection}/{id} {
+        allow read, write: if owner(uid) && collection in [
+          'tasks', 'timetable', 'transactions', 'wallets', 'categoryBudgets',
+          'loans', 'subscriptions', 'billSplits', 'sleep', 'workouts', 'meals',
+          'bodyMetrics', 'healthSettings', 'mealPlans', 'workoutSessions',
+          'notificationSettings', 'pushSubscriptions'
+        ];
+      }
     }
+    // Mail receipts, reset tokens, counters and admin settings are server-only.
   }
 }

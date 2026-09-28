@@ -48,3 +48,16 @@ class NutritionTests(unittest.TestCase):
    p=engine.build_plan(self.context,fake)
   self.assertIn(p['nextMeal']['id'],[m['id'] for m in p['alternatives']])
 if __name__=='__main__':unittest.main()
+
+class OmnivoreTests(unittest.TestCase):
+ def test_meat_and_fish_require_omnivore_and_respect_fish_allergy(self):
+  for diet in ['vegan','vegetarian','eggs','omnivore']:
+   with self.subTest(diet=diet):
+    context={'date':'2026-09-28','hour':12,'profile':{'age':25,'medicalStatus':'none','allergies':['fish'],'diet':diet}}
+    result=engine.build_plan(context,lambda *a,**k:(_ for _ in ()).throw(OSError()))
+    ids=[r['id'] for r in result['alternatives']]
+    self.assertNotIn('salmon_rice',ids)
+    self.assertEqual('chicken_rice' in ids,diet=='omnivore')
+ def test_missing_setup_identifies_fields_and_does_not_require_logs(self):
+  result=engine.build_plan({'profile':{}})
+  self.assertTrue(result['needsSetup']);self.assertIn('age and health considerations',result['message'])

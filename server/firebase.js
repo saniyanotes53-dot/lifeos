@@ -14,9 +14,17 @@ export async function verifyFirebaseToken(token,key=googleKeys,now=new Date()){
 export async function requireUser(req){
   const token=bearerToken(req);
   if(!token)throw Object.assign(new Error('Sign in to continue.'),{status:401});
-  try{return await verifyFirebaseToken(token);}catch(error){
-    if(error.code==='ERR_JWKS_TIMEOUT'||error instanceof TypeError)throw Object.assign(new Error('Sign-in verification is temporarily unavailable. Please try again.'),{status:503});
+  try{const user=await verifyFirebaseToken(token);await checkAccountState(user);return user;}catch(error){
+    if(error.status===503||error.code==='ERR_JWKS_TIMEOUT'||error instanceof TypeError)throw Object.assign(new Error('Sign-in verification is temporarily unavailable. Please try again.'),{status:503});
     throw Object.assign(new Error('Please sign in again.'),{status:401});
   }
 }
 export function fail(res,error){return res.status(error.status||500).json({error:error.status?error.message:'The service could not complete this request.'});}
+
+export async function checkAccountState(user,request=fetch,getToken){
+ const token=await (getToken||((await import('./reminder-mail.js')).adminToken))();
+ const response=await request(`https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:lookup`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({localId:[user.uid]}),signal:AbortSignal.timeout(8000)});
+ if(!response.ok)throw Object.assign(Error('Account verification unavailable.'),{status:503});
+ const account=(await response.json()).users?.[0];
+ if(!account||account.localId!==user.uid||account.disabled||Number(account.validSince||0)>user.auth_time)throw Object.assign(Error('Please sign in again.'),{status:401});
+}

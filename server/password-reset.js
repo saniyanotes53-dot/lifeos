@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { projectId } from './firebase.js';
 import { adminToken, decode } from './reminder-mail.js';
 import { transport } from './delivery.js';
+import {atomicRecord,persistentLimit} from './security-store.js';
 import { createLimiter } from './rate-limit.js';
 
 const OTP_LIFETIME_MS = 10 * 60 * 1000; // 10 minutes
@@ -19,7 +20,7 @@ const requestLimiter = createLimiter(10, 60000);
 export function getPasswordResetSecret() {
   const secret = process.env.PASSWORD_RESET_SECRET;
   if (!secret || secret.length < 32) {
-    if (process.env.NODE_ENV === 'test' || process.env.LIFEOS_TEST) {
+    if (process.env.NODE_ENV === 'test') {
       return 'test_password_reset_secret_must_be_32_chars_minimum!';
     }
     throw Object.assign(new Error('Password reset service configuration is incomplete.'), { status: 500 });
@@ -107,7 +108,7 @@ export async function firestoreDocRequest(path, options = {}, { token, fetchImpl
 }
 
 export async function lookupAuthUser(email, { token, fetchImpl = globalThis.fetch } = {}) {
-  const accountToken = token || (process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? await adminToken() : 'test-token');
+  const accountToken = token || (await adminToken());
   const pid = process.env.FIREBASE_PROJECT_ID || projectId;
   const url = `https://identitytoolkit.googleapis.com/v1/projects/${pid}/accounts:lookup`;
   const res = await fetchImpl(url, {
@@ -180,6 +181,13 @@ export async function updateAuthPassword(uid, newPassword, { token, fetchImpl = 
   return res.json();
 }
 
+async function mutate(db,path,change){
+  if(db.atomic)return db.atomic(path,change);
+  const next=change(await db.get(path));
+  if(next!==null)await db.set(path,next);
+  return next;
+}
+
 /**
  * Step 1: Request 6-digit OTP
  */
@@ -188,6 +196,7 @@ export async function requestPasswordReset(rawEmail, overrides = {}) {
   const now = overrides.now || Date.now();
   const secret = overrides.secret || getPasswordResetSecret();
   const db = overrides.db || {
+    atomic: atomicRecord,
     get: path => firestoreDocRequest(path, { method: 'GET' }, overrides),
     set: (path, data) => firestoreDocRequest(path, { method: 'PATCH', body: JSON.stringify({ fields: encodeFirestoreFields(data) }) }, overrides)
   };
@@ -215,7 +224,7 @@ export async function requestPasswordReset(rawEmail, overrides = {}) {
   try {
     existing = await db.get(`passwordResetRequests/${emailHash}`);
   } catch (err) {
-    console.error('[password-reset.check]', err.message);
+    throw Object.assign(Error('Password reset is temporarily unavailable.'),{status:503});
   }
 
   if (existing && !existing.used && existing.resendAvailableAt && existing.resendAvailableAt > now) {
@@ -228,7 +237,7 @@ export async function requestPasswordReset(rawEmail, overrides = {}) {
   try {
     user = await lookupUser(email);
   } catch (err) {
-    console.error('[password-reset.lookup]', err.message);
+    console.error('[password-reset.lookup]', {status:err.status||500});
   }
 
   // If user does not exist or does not have password login, return generic message without sending email
@@ -254,7 +263,8 @@ export async function requestPasswordReset(rawEmail, overrides = {}) {
     used: false
   };
 
-  await db.set(`passwordResetRequests/${emailHash}`, requestRecord);
+  const claimed=await mutate(db,`passwordResetRequests/${emailHash}`,old=>old?.resendAvailableAt>now?null:requestRecord);
+  if(!claimed)return {ok:true,message:GENERIC_REQUEST_MESSAGE};
 
   // Send email via Gmail SMTP transport
   const { html, text } = renderOTPEmail(otp);
@@ -270,7 +280,7 @@ export async function requestPasswordReset(rawEmail, overrides = {}) {
       idempotencyKey
     });
   } catch (err) {
-    console.error('[password-reset.mail]', err.message);
+    console.error('[password-reset.mail]', {status:err.status||500});
     // Even if SMTP temporarily fails, do not expose internal failure to the client
   }
 
@@ -286,6 +296,7 @@ export async function verifyPasswordReset(rawEmail, rawCode, overrides = {}) {
   const now = overrides.now || Date.now();
   const secret = overrides.secret || getPasswordResetSecret();
   const db = overrides.db || {
+    atomic: atomicRecord,
     get: path => firestoreDocRequest(path, { method: 'GET' }, overrides),
     set: (path, data) => firestoreDocRequest(path, { method: 'PATCH', body: JSON.stringify({ fields: encodeFirestoreFields(data) }) }, overrides),
     del: path => firestoreDocRequest(path, { method: 'DELETE' }, overrides)
@@ -298,43 +309,17 @@ export async function verifyPasswordReset(rawEmail, rawCode, overrides = {}) {
   }
 
   const emailHash = hashEmail(email, secret);
-  const record = await db.get(`passwordResetRequests/${emailHash}`).catch(() => null);
-
-  if (!record || record.used || record.verified || !record.expiresAt || now > record.expiresAt) {
-    throw invalidError();
-  }
-
-  const currentAttempts = Number(record.attemptCount) || 0;
-  if (currentAttempts >= MAX_OTP_ATTEMPTS) {
-    // Invalidate request
-    await db.set(`passwordResetRequests/${emailHash}`, { ...record, used: true });
-    throw invalidError();
-  }
-
-  const computedOtpHash = hashOTP(emailHash, code, secret);
-  const isMatch = safeCompare(computedOtpHash, record.otpHash);
-
-  if (!isMatch) {
-    const updatedAttempts = currentAttempts + 1;
-    await db.set(`passwordResetRequests/${emailHash}`, {
-      ...record,
-      attemptCount: updatedAttempts,
-      used: updatedAttempts >= MAX_OTP_ATTEMPTS
-    });
-    throw invalidError();
-  }
-
-  // OTP is valid. Consume OTP and generate single-use reset authorization token
-  const resetToken = overrides.mockResetToken || randomBytes(32).toString('hex');
-  const resetTokenHash = hashResetToken(resetToken, secret);
-
-  // Invalidate OTP record so it cannot be reused
-  await db.set(`passwordResetRequests/${emailHash}`, {
-    ...record,
-    verified: true,
-    used: true,
-    otpHash: ''
+  const record=await mutate(db,`passwordResetRequests/${emailHash}`,current=>{
+    if(!current||current.used||current.verified||!current.expiresAt||now>=current.expiresAt)throw invalidError();
+    const attempts=Number(current.attemptCount)||0;
+    if(attempts>=MAX_OTP_ATTEMPTS)throw invalidError();
+    if(!safeCompare(hashOTP(emailHash,code,secret),current.otpHash))
+      return {...current,attemptCount:attempts+1,used:attempts+1>=MAX_OTP_ATTEMPTS};
+    return {...current,verified:true,used:true,otpHash:''};
   });
+  if(!record.verified)throw invalidError();
+  const resetToken=overrides.mockResetToken||randomBytes(32).toString('hex');
+  const resetTokenHash=hashResetToken(resetToken,secret);
 
   // Store reset token session
   const tokenRecord = {
@@ -359,6 +344,7 @@ export async function confirmPasswordReset(resetToken, newPassword, overrides = 
   const now = overrides.now || Date.now();
   const secret = overrides.secret || getPasswordResetSecret();
   const db = overrides.db || {
+    atomic: atomicRecord,
     get: path => firestoreDocRequest(path, { method: 'GET' }, overrides),
     set: (path, data) => firestoreDocRequest(path, { method: 'PATCH', body: JSON.stringify({ fields: encodeFirestoreFields(data) }) }, overrides),
     del: path => firestoreDocRequest(path, { method: 'DELETE' }, overrides)
@@ -371,19 +357,15 @@ export async function confirmPasswordReset(resetToken, newPassword, overrides = 
     throw invalidTokenError();
   }
 
-  if (!password || password.length < 8) {
+  if (!password || password.length < 8 || password.length > 128) {
     throw Object.assign(new Error('Password must be at least 8 characters long.'), { status: 400 });
   }
 
   const resetTokenHash = hashResetToken(token, secret);
-  const tokenRecord = await db.get(`passwordResetTokens/${resetTokenHash}`).catch(() => null);
-
-  if (!tokenRecord || tokenRecord.used || !tokenRecord.expiresAt || now > tokenRecord.expiresAt || !tokenRecord.uid) {
-    throw invalidTokenError();
-  }
-
-  // Consume reset token immediately to prevent replay
-  await db.set(`passwordResetTokens/${resetTokenHash}`, { ...tokenRecord, used: true });
+  const tokenRecord=await mutate(db,`passwordResetTokens/${resetTokenHash}`,current=>{
+    if(!current||current.used||!current.expiresAt||now>=current.expiresAt||!current.uid)throw invalidTokenError();
+    return {...current,used:true};
+  });
 
   // Update password in Firebase Authentication backend
   await updateUserPassword(tokenRecord.uid, password);
@@ -392,12 +374,10 @@ export async function confirmPasswordReset(resetToken, newPassword, overrides = 
   try {
     if (db.del) {
       await db.del(`passwordResetTokens/${resetTokenHash}`);
-      if (tokenRecord.emailHash) {
-        await db.del(`passwordResetRequests/${tokenRecord.emailHash}`);
-      }
+
     }
   } catch (err) {
-    console.warn('[password-reset.cleanup]', err.message);
+    console.warn('[password-reset.cleanup]', {status:err.status||500});
   }
 
   return { ok: true, message: 'Password changed successfully.' };
@@ -408,40 +388,43 @@ export async function confirmPasswordReset(resetToken, newPassword, overrides = 
  */
 export async function requestPasswordResetOTPHandler(req, res, overrides = {}) {
   try {
+    if(!overrides.db)await persistentLimit(req,'reset-request',3,3600000,getPasswordResetSecret());
     const { email } = req.body || {};
     const result = await requestPasswordReset(email, overrides);
     return res.status(200).json(result);
   } catch (err) {
-    console.error('[auth.request.error]', err.message);
+    console.error('[auth.request.error]', {status:err.status||500});
     return res.status(err.status || 500).json({
       ok: false,
-      error: err.status ? err.message : 'The request could not be processed.'
+      error: err.status && err.status<500 ? err.message : 'The request could not be processed.'
     });
   }
 }
 
 export async function verifyPasswordResetOTPHandler(req, res, overrides = {}) {
   try {
+    if(!overrides.db)await persistentLimit(req,'reset-verify',5,60000,getPasswordResetSecret());
     const { email, code } = req.body || {};
     const result = await verifyPasswordReset(email, code, overrides);
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.status || 400).json({
       ok: false,
-      error: err.message || 'That code is invalid or has expired.'
+      error: err.status && err.status<500 ? err.message : 'That code could not be checked. Please retry.'
     });
   }
 }
 
 export async function confirmPasswordResetHandler(req, res, overrides = {}) {
   try {
+    if(!overrides.db)await persistentLimit(req,'reset-confirm',5,60000,getPasswordResetSecret());
     const { resetToken, newPassword } = req.body || {};
     const result = await confirmPasswordReset(resetToken, newPassword, overrides);
     return res.status(200).json(result);
   } catch (err) {
     return res.status(err.status || 400).json({
       ok: false,
-      error: err.message || 'Failed to update password.'
+      error: err.status && err.status<500 ? err.message : 'Failed to update password. Request a new code and retry.'
     });
   }
 }

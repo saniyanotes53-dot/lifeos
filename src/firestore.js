@@ -1,5 +1,5 @@
 import {
-  collection, doc, setDoc,
+  collection, doc, setDoc, getDoc,
   onSnapshot, query, runTransaction, getDocs, limit,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
@@ -93,6 +93,8 @@ export async function importTransactions(uid,rows,onProgress){
 }
 
 export async function saveHealthRecord(uid,name,id,data){
- if(!['healthSettings','mealPlans','meals','workouts'].includes(name)||!id||id.includes('/'))throw Error('Invalid health record.');
+ if(!['healthSettings','mealPlans','meals','workouts','workoutSessions'].includes(name)||!id||id.includes('/'))throw Error('Invalid health record.');
  return trackedWrite(uid,name,tx=>tx.set(doc(db,'users',uid,name,id),data));
 }
+
+export async function readActiveWorkout(uid){const snap=await getDoc(doc(db,"users",uid,"workoutSessions","active"));return snap.exists()?snap.data().session:null;}

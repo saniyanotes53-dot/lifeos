@@ -1,6 +1,5 @@
 import {createHmac,randomBytes,scrypt as scryptCallback,timingSafeEqual} from 'node:crypto';
 import {promisify} from 'node:util';
-import {passwordVerifier} from './admin-verifier.js';
 import {readCatalog,saveCatalog,readDocument,writeDocument} from './product-store.js';
 import {adminToken} from './reminder-mail.js';
 import {fail} from './firebase.js';
@@ -11,10 +10,15 @@ function secret() {
  if (!process.env.CRON_SECRET) throw Object.assign(Error('Admin authentication is not configured.'),{status:503});
  return createHmac('sha256',process.env.CRON_SECRET).update('lifeos-product-admin-v1:'+verifier()).digest();
 }
-const verifier = () => process.env.LIFEOS_ADMIN_PASSWORD_HASH || passwordVerifier;
+const verifier = () => {
+ const value=process.env.LIFEOS_ADMIN_PASSWORD_HASH;
+ if(!/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(value||''))throw Object.assign(Error('Admin access needs a new server-side password verifier.'),{status:503});
+ return value;
+};
 const equal = (a,b) => a.length === b.length && timingSafeEqual(a,b);
-export async function checkPassword(password, encoded = verifier()) {
+export async function checkPassword(password, encoded) {
  if (typeof password !== 'string' || password.length > 256) return false;
+ encoded=encoded||verifier();
  const [salt,hash] = encoded.split(':');
  if (!/^[a-f0-9]{32}$/.test(salt || '') || !/^[a-f0-9]{128}$/.test(hash || '')) throw Error('Invalid admin verifier configuration.');
  return equal(await scrypt(password,salt,64),Buffer.from(hash,'hex'));

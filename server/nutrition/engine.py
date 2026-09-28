@@ -22,6 +22,8 @@ RECIPES = [
  ('chickpea_carrot','Chickpea rice skillet','dinner',{'chickpeas':220,'carrot':120,'rice':70},'Cook the dry rice, then warm with cooked chickpeas and carrot.'),
  ('fruit','Apple and banana','snack',{'apple':180,'banana':100},'Wash the apple and slice the fruit.'),
  ('chickpea_snack','Warm chickpea snack','snack',{'chickpeas':120,'carrot':80},'Warm cooked chickpeas and serve with washed carrot sticks.'),
+ ('chicken_rice','Roast chicken rice bowl','lunch',{'chicken':140,'rice':75,'spinach':80},'Use fully cooked chicken (74°C / 165°F internally), weighed after cooking. Cook the dry rice and serve with washed spinach.'),
+ ('salmon_rice','Salmon and vegetable rice','dinner',{'salmon':140,'rice':70,'carrot':120},'Cook fish to 63°C / 145°F internally; weigh after cooking. Cook the dry rice and steam the carrot.'),
 ]
 
 def finite(value):
@@ -84,17 +86,27 @@ def ai_choice(candidates,summary,fetch=request_json):
 def build_plan(context, fetch=request_json):
     profile=context.get('profile') or {}
     age=finite(profile.get('age'))
-    if age is None or age<18 or age>100 or profile.get('medicalStatus')!='none' or profile.get('otherAllergies','').strip():
-        return {'blocked':True,'message':'Personalized meal planning needs an adult profile with allergy and health checks completed. For pregnancy, a medical condition, an eating-disorder history, or an unlisted allergy, use a qualified dietitian to set a safe plan. You can still log meals and workouts here.'}
+    missing=[]
+    if age is None:missing.append('age')
+    if not profile.get('medicalStatus'):missing.append('health considerations')
+    if missing:
+        return {'blocked':True,'needsSetup':True,'message':'Complete '+ ' and '.join(missing)+' in Health preferences below, save, then select Suggest meals. Food logs and nutrient targets are optional.'}
+    if age<18 or age>100:
+        return {'blocked':True,'message':'This meal planner supports adults aged 18–100. You can still log meals; ask a qualified clinician for age-appropriate planning.'}
+    if profile.get('medicalStatus')!='none':
+        return {'blocked':True,'message':'Your saved health considerations require individual dietary guidance. This general meal planner cannot safely tailor a medical, pregnancy or eating-disorder diet. Use your clinician’s plan and continue logging meals here.'}
+    if profile.get('otherAllergies','').strip():
+        return {'blocked':True,'message':'Your profile lists an allergy outside our verified recipe filters. We cannot safely recommend these recipes for it. Keep that allergy recorded and use a dietitian-approved plan.'}
     allergies=profile.get('allergies',[])
-    if not isinstance(allergies,list) or any(a not in ['eggs','gluten','legumes'] for a in allergies): raise ValueError('Invalid allergy selection')
+    if not isinstance(allergies,list) or any(a not in ['eggs','gluten','legumes','fish'] for a in allergies): raise ValueError('Invalid allergy selection')
     diet=profile.get('diet','vegetarian')
-    if diet not in ['vegan','vegetarian','eggs']:raise ValueError('Invalid diet selection')
+    if diet not in ['vegan','vegetarian','eggs','omnivore']:raise ValueError('Invalid diet selection')
     excluded=set(allergies)
-    if diet!='eggs':excluded.add('eggs')
+    if diet not in ['eggs','omnivore']:excluded.add('eggs')
     foods,source=nutrition_data(fetch)
     recipes=[]
     for rid,name,slot,ingredients,method in RECIPES:
+        if diet!='omnivore' and any(f in ingredients for f in ['chicken','salmon']):continue
         if any(excluded.intersection(foods[f]['allergens']) for f in ingredients):continue
         recipes.append({'id':rid,'name':name,'slot':slot,'ingredients':[{'name':foods[f]['name'],'grams':g,'fdcId':foods[f]['id']} for f,g in ingredients.items()],
                         'method':method,'nutrients':sum_nutrients(ingredients,foods)})
@@ -110,7 +122,8 @@ def build_plan(context, fetch=request_json):
     if not choices:choices=recipes
     if not choices:return {'blocked':True,'message':'No recipes match all your exclusions. Keep a manual food log and ask a dietitian for suitable alternatives.'}
     def score(c):
-        return sum(min(c['nutrients'].get(k) or 0,v)/max(v,1) for k,v in remaining.items())
+        preference=0.05 if diet=='omnivore' and c['id'] in ['chicken_rice','salmon_rice'] else 0
+        return preference+sum(min(c['nutrients'].get(k) or 0,v)/max(v,1) for k,v in remaining.items())
     choices=sorted(choices,key=score,reverse=True)
     chosen=ai_choice(choices,summary,fetch)
     daily=[]
@@ -124,6 +137,6 @@ def build_plan(context, fetch=request_json):
       'notes':['General food ideas, not a medical diet or diagnosis. Recorded gaps are not proven deficiencies.',
                'Portions are editable. This sample day is not guaranteed to meet your energy needs or every nutrient target.',
                'Use cooked weights except oats and rice, which are dry weights. Added oil, milk, salt and sauces are not included.',
-               'Check ingredient labels and cross-contact risks for allergies. Foods here contain no meat or alcohol.',
+               'Check ingredient labels and cross-contact risks for allergies. Omnivore recipes can include meat and fish; all other diets exclude them.',
                'Your food log may be incomplete; missing nutrient entries are unknown, not zero.' if not complete else 'Totals reflect only the foods you recorded.',
                'Some meal slots have no recipe matching your exclusions.' if len(daily)<4 else 'Save the plan, then mark each meal eaten only after you eat it.']}

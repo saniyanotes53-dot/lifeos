@@ -28,3 +28,5 @@ export async function importTransactions(uid,rows,onProgress){
 }
 
 export async function saveHealthRecord(uid,name,id,item){data[name]=[...(data[name]||[]).filter(x=>x.id!==id),{...item,id}];emit(name);}
+
+export async function readActiveWorkout(){return null;}

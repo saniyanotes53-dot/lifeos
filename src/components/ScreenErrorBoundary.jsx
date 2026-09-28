@@ -12,7 +12,7 @@ export default class ScreenErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("ScreenErrorBoundary caught an error:", error, errorInfo);
+    console.error("[screen.render.failed]");
   }
 
   componentDidUpdate(prevProps) {

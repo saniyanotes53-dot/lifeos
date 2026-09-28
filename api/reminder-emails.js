@@ -39,5 +39,5 @@ export default async function handler(req,res){
    catch(error){await dbRequest(token,receipt,{method:'DELETE'});throw error;}
   }
   return res.json({accepted,skippedMissingOwner});
- }catch(e){console.error('[reminder-email]',e.message);return res.status(502).json({error:'Reminder delivery did not complete. Check server logs.'});}
+ }catch(e){console.error('[reminder-email]',{code:e.code||'delivery-failed'});return res.status(502).json({error:'Reminder delivery did not complete. Check server logs.'});}
 }

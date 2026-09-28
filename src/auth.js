@@ -36,7 +36,7 @@ export async function registerWithEmail(name, email, password) {
   if (name) await updateProfile(cred.user, { displayName: name });
   sendEmailVerification(cred.user).catch(error => console.warn('[auth.verification]', { code: error.code }));
   inviteReminderSetup(cred.user.uid);
-  sendWelcomeEmail(cred.user).catch(err => console.warn('[auth.welcome]', err.message));
+  sendWelcomeEmail(cred.user).catch(err => console.warn('[auth.welcome]', {code:err.code||'delivery-failed'}));
   return cred.user;
 }
 

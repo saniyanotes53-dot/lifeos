@@ -1,5 +1,5 @@
 import {requireUser,bearerToken,projectId,fail} from './firebase.js';
-export const RESET_SCOPES=Object.freeze({tasks:['tasks','timetable'],budget:['transactions','wallets','categoryBudgets','loans','subscriptions','billSplits'],health:['sleep','workouts','meals','bodyMetrics','healthSettings','mealPlans']});
+export const RESET_SCOPES=Object.freeze({tasks:['tasks','timetable'],budget:['transactions','wallets','categoryBudgets','loans','subscriptions','billSplits'],health:['sleep','workouts','meals','bodyMetrics','healthSettings','mealPlans','workoutSessions']});
 export function validateReset(body,user,now=Date.now()){
  if(!Object.hasOwn(RESET_SCOPES,body?.scope)||body.confirmation!==`RESET ${body.scope.toUpperCase()}`)throw Object.assign(new Error('Confirm the exact section to reset.'),{status:400});
  if(!Number.isInteger(user.auth_time)||now/1000-user.auth_time>120||user.auth_time>now/1000)throw Object.assign(new Error('Please verify your identity again before resetting.'),{status:401});

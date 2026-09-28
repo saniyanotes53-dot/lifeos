@@ -15,7 +15,7 @@ export async function applyActions(uid,token,input,request=fetch){
  async function call(path,body){
   const url='https://firestore.googleapis.com/v1/'+path.split('/').map(p=>encodeURIComponent(p).replace(/%3A/g,':')).join('/');
   const response=await request(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});
-  if(!response.ok){console.error('[assistant.firestore]',{operation:path.split(':').pop(),status:response.status});throw Object.assign(new Error(response.status===403?'Firestore blocked saving. Check your account access.':response.status===409?'Your records changed. Ask for a fresh proposal.':'Could not save changes. You can retry the same confirmation safely.'),{status:response.status===403?403:response.status===409?409:502});}
+  if(!response.ok){console.error('[assistant.firestore]',{operation:'firestore-request',status:response.status});throw Object.assign(new Error(response.status===403?'Firestore blocked saving. Check your account access.':response.status===409?'Your records changed. Ask for a fresh proposal.':'Could not save changes. You can retry the same confirmation safely.'),{status:response.status===403?403:response.status===409?409:502});}
   return response.json();
  }
  const {transaction}=await call(`${root}:beginTransaction`,{options:{readWrite:{}}});

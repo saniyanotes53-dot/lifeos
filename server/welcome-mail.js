@@ -126,12 +126,12 @@ export async function sendWelcomeEmailForUser(userRecord, overrides = {}) {
       idempotencyKey
     });
   } catch (err) {
-    console.error('[welcome-mail.send]', err.message);
+    console.error('[welcome-mail.send]', {code:err.code||'delivery-failed'});
     // Remove pending claim so the user can safely retry later
     try {
       await db.delete(receiptPath);
     } catch (delErr) {
-      console.warn('[welcome-mail.cleanup]', delErr.message);
+      console.warn('[welcome-mail.cleanup]', {code:delErr.code||'delivery-failed'});
     }
     throw err;
   }
@@ -189,7 +189,7 @@ export async function welcomeEmailHandler(req, res, overrides = {}) {
     );
     return res.status(200).json(result);
   } catch (err) {
-    console.error('[auth.welcome.error]', err.message);
+    console.error('[auth.welcome.error]', {code:err.code||'delivery-failed'});
     return res.status(502).json({
       ok: false,
       error: 'Failed to deliver welcome email.'
