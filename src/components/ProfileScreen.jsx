@@ -1,3 +1,4 @@
+import AIConnections from './AIConnections';
 import CloudNotifications from './CloudNotifications';
 import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
@@ -183,6 +184,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
   return (
     <Screen t={t} title="Profile & Settings">
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <AIConnections t={t} user={user}/>
         {/* User Identity Card */}
         <Card t={t} style={{ padding: 22, display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{

@@ -7,7 +7,6 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate
-from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
 
@@ -115,45 +114,49 @@ def deliver_push(payload):
         raise RuntimeError('Browser push provider rejected the notification.') from None
 
 
-class handler(BaseHTTPRequestHandler):
-    def respond(self, status, payload):
-        self.send_response(status)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Cache-Control', 'no-store')
-        self.end_headers()
-        self.wfile.write(json.dumps(payload).encode())
+# ASGI application reuses the existing function URL and private authentication.
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+from server.groq_transport import groq_request, ProviderError
 
-    def do_GET(self):
-        try:
-            from server.nutrition.engine import build_plan
-            nutrition_ready = True
-        except ImportError:
-            nutrition_ready = False
-        self.respond(200, {'service': 'lifeos-python-delivery', 'nutritionReady': nutrition_ready, **configuration()})
+app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
 
-    def do_POST(self):
-        if not authorized(self.headers.get('Authorization')):
-            return self.respond(401, {'error': 'Unauthorized'})
-        try:
-            length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 32768:
-                return self.respond(413, {'error': 'Invalid request size.'})
-            payload = json.loads(self.rfile.read(length))
-            if not isinstance(payload, dict):
-                raise ValueError('Invalid request.')
-            if payload.get('channel') == 'nutrition':
-                from server.nutrition.engine import build_plan
-                result = build_plan(payload.get('context', {}))
-            elif payload.get('channel') == 'email':
-                result = deliver_email(payload)
-            elif payload.get('channel') == 'push':
-                result = deliver_push(payload)
-            else:
-                raise ValueError('Unknown delivery channel.')
-            self.respond(200, result)
-        except (ValueError, TypeError):
-            self.respond(400, {'error': 'Invalid delivery request.'})
-        except Exception as error:
-            # Never log credentials, recipients, content or provider response bodies.
-            print('[delivery.failed]', type(error).__name__)
-            self.respond(502, {'error': 'Delivery failed. Check sender configuration and provider limits.'})
+@app.get('/api/deliver')
+@app.get('/')
+def status():
+    from server.nutrition.engine import build_plan
+    return JSONResponse({'service':'lifeos-python-delivery','framework':'FastAPI','nutritionReady':True,**configuration()},headers={'Cache-Control':'no-store'})
+
+def dispatch(payload):
+    channel=payload.get('channel')
+    if channel=='nutrition':
+        from server.nutrition.engine import build_plan
+        return build_plan(payload.get('context',{}))
+    if channel=='email':return deliver_email(payload)
+    if channel=='push':return deliver_push(payload)
+    if channel in ['groq','groq-test']:return groq_request(payload)
+    raise ValueError('Unknown delivery channel')
+
+@app.post('/api/deliver')
+@app.post('/')
+async def deliver(request:Request):
+    headers={'Cache-Control':'no-store'}
+    if not authorized(request.headers.get('authorization')):
+        return JSONResponse({'error':'Unauthorized'},status_code=401,headers=headers)
+    try:
+        raw=bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw)>200000:return JSONResponse({'error':'Request too large'},status_code=413,headers=headers)
+        payload=json.loads(raw)
+        if not isinstance(payload,dict):raise ValueError('Invalid request')
+        if payload.get('channel') not in ['groq','groq-test'] and len(raw)>32768:
+            return JSONResponse({'error':'Request too large'},status_code=413,headers=headers)
+        return JSONResponse(await run_in_threadpool(dispatch,payload),headers=headers)
+    except ProviderError as error:
+        return JSONResponse({'error':str(error)},status_code=error.status,headers=headers)
+    except (ValueError,TypeError):
+        return JSONResponse({'error':'Invalid private service request.'},status_code=400,headers=headers)
+    except Exception:
+        return JSONResponse({'error':'The private service could not complete this request. Please retry.'},status_code=502,headers=headers)

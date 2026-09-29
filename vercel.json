@@ -34,7 +34,7 @@
     "api/**/*.py": {
       "maxDuration": 30,
       "excludeFiles": "{node_modules/**,dist/**,tests/**,.git/**}",
-      "includeFiles": "server/nutrition/**"
+      "includeFiles": "{server/nutrition/**,server/groq_transport.py}"
     }
   }
 }

@@ -1,3 +1,4 @@
+import {proposeOperator} from '../server/groq-operator.js';
 import {requireUser,fail} from '../server/firebase.js';
 import {healthPlan} from '../server/health-plan.js';
 import {createLimiter} from '../server/rate-limit.js';
@@ -14,7 +15,7 @@ export default async function handler(req,res){
   const streaming=req.body?.stream===true;
   const emit=event=>res.write(JSON.stringify(event)+'\n');
   if(streaming){res.setHeader('Content-Type','application/x-ndjson');res.setHeader('X-Accel-Buffering','no');res.flushHeaders?.();}
-  const result=await proposeActions(text,history,context,fetch,streaming?reply=>emit({type:'reply',text:reply}):null);
+  const result=req.body?.provider==='groq'?await proposeOperator(text,history,context):await proposeActions(text,history,context,fetch,streaming?reply=>emit({type:'reply',text:reply}):null);
   console.info('[assistant.reply]',{durationMs:Date.now()-started,actions:result.actions.length});
   if(streaming){emit({type:'done',result});return res.end();}return res.json(result);
  }catch(e){console.error('[assistant.reply.failed]',{status:e.status||500,code:e.name});if(res.headersSent){res.write(JSON.stringify({type:'error',status:e.status||502,error:e.status?e.message:'The reply was interrupted. Please try again.'})+'\n');return res.end();}return fail(res,e);}

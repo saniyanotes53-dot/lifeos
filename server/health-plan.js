@@ -14,7 +14,11 @@ export async function healthPlan(req,user,request=fetch){
   if(rows.length>200)throw Object.assign(Error('Too many recent health logs to analyze safely. Review duplicate entries first.'),{status:400});
   return rows.filter(x=>x.date<=date);
  }
- const [p,meals,workouts,sleep]=await Promise.all([read('/healthSettings/profile'),records('meals'),records('workouts'),records('sleep')]);
+ const [profileRead,...logReads]=await Promise.allSettled([read('/healthSettings/profile'),records('meals'),records('workouts'),records('sleep')]);
+ if(profileRead.status!=='fulfilled')throw profileRead.reason;
+ const p=profileRead.value;
+ const missingLogs=logReads.map((r,i)=>r.status==='rejected'?['food','workout','sleep'][i]:null).filter(Boolean);
+ const [meals,workouts,sleep]=logReads.map(r=>r.status==='fulfilled'?r.value:[]);
  const profile=decode({mapValue:{fields:p.fields||{}}});
  const pick=(row,keys)=>Object.fromEntries(keys.filter(k=>row[k]!==undefined).map(k=>[k,row[k]]));
  const payload={channel:'nutrition',context:{date,hour,profile:pick(profile,['age','medicalStatus','otherAllergies','allergies','diet','goal','targets']),meals:meals.filter(m=>m.date===date).map(m=>pick(m,['cal','protein','fat','carbs','fiber','calcium','iron','potassium'])),workouts:workouts.map(w=>pick(w,['minutes'])),sleep:sleep.map(s=>pick(s,['hours']))}};
@@ -23,5 +27,11 @@ export async function healthPlan(req,user,request=fetch){
  const response=await request('https://lifeos53.vercel.app/api/deliver',{method:'POST',headers:{Authorization:`Bearer ${process.env.CRON_SECRET}`,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(27000)});
  const result=await response.json().catch(()=>({}));
  if(!response.ok)throw Object.assign(Error('Meal planning is temporarily unavailable. Your saved logs are unchanged.'),{status:502});
+ if(missingLogs.length&&!result.blocked){
+  result.notes=[`Some saved logs could not load (${missingLogs.join(', ')}). These ideas use your preferences only for those areas; retry later for a complete analysis.`,...(result.notes||[])];
+  result.dataWarnings=missingLogs;
+  if(result.summary&&missingLogs.includes('workout'))result.summary.workoutMinutesLast7Days=null;
+  if(result.summary&&missingLogs.includes('food')){result.summary.recordedToday=null;result.summary.remainingToUserTargets={};}
+ }
  return result;
 }
