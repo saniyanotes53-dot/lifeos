@@ -1,3 +1,3 @@
-// Bind to the owner's verified Firebase UID after they identify their account.
-// Empty is intentional: there is no public first-user-wins registration route.
-export const ownerUid = '';
+// Owner-designated Firebase UID. Authentication and verified email are required.
+// There is no public first-user-wins registration route.
+export const ownerUid = 'nIOzxcuDktYPdmGHEsTC3eas78P2';
