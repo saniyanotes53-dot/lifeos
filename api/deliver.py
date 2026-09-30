@@ -118,7 +118,6 @@ def deliver_push(payload):
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
-from server.groq_transport import groq_request, ProviderError
 
 app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
 
@@ -135,7 +134,6 @@ def dispatch(payload):
         return build_plan(payload.get('context',{}))
     if channel=='email':return deliver_email(payload)
     if channel=='push':return deliver_push(payload)
-    if channel in ['groq','groq-test']:return groq_request(payload)
     raise ValueError('Unknown delivery channel')
 
 @app.post('/api/deliver')
@@ -148,14 +146,10 @@ async def deliver(request:Request):
         raw=bytearray()
         async for chunk in request.stream():
             raw.extend(chunk)
-            if len(raw)>200000:return JSONResponse({'error':'Request too large'},status_code=413,headers=headers)
+            if len(raw)>32768:return JSONResponse({'error':'Request too large'},status_code=413,headers=headers)
         payload=json.loads(raw)
         if not isinstance(payload,dict):raise ValueError('Invalid request')
-        if payload.get('channel') not in ['groq','groq-test'] and len(raw)>32768:
-            return JSONResponse({'error':'Request too large'},status_code=413,headers=headers)
         return JSONResponse(await run_in_threadpool(dispatch,payload),headers=headers)
-    except ProviderError as error:
-        return JSONResponse({'error':str(error)},status_code=error.status,headers=headers)
     except (ValueError,TypeError):
         return JSONResponse({'error':'Invalid private service request.'},status_code=400,headers=headers)
     except Exception:

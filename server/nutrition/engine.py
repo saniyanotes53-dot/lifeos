@@ -90,7 +90,7 @@ def build_plan(context, fetch=request_json):
     if age is None:missing.append('age')
     if not profile.get('medicalStatus'):missing.append('health considerations')
     if missing:
-        return {'blocked':True,'needsSetup':True,'message':'Complete '+ ' and '.join(missing)+' in Health preferences below, save, then select Suggest meals. Food logs and nutrient targets are optional.'}
+        return {'blocked':True,'needsSetup':True,'message':'Complete '+ ' and '.join(missing)+' in Health preferences, save, then select Suggest next meal & plan today. A health report, food logs and nutrient targets are not required.'}
     if age<18 or age>100:
         return {'blocked':True,'message':'This meal planner supports adults aged 18–100. You can still log meals; ask a qualified clinician for age-appropriate planning.'}
     if profile.get('medicalStatus')!='none':
@@ -116,6 +116,13 @@ def build_plan(context, fetch=request_json):
     remaining={k:round(max(0,float(v)-totals[k]),1) for k,v in targets.items() if k in totals and finite(v) is not None and float(v)>0 and context.get('meals') and all(finite(m.get(k)) is not None for m in context['meals'])}
     summary={'recordedToday':totals,'remainingToUserTargets':remaining,'workoutMinutesLast7Days':sum(finite(w.get('minutes')) or 0 for w in context.get('workouts',[])),
              'lastSleepHours':finite((context.get('sleep') or [{}])[0].get('hours')),'goal':profile.get('goal','wellbeing')}
+    missing_logs=context.get('missingLogs') or []
+    if 'food' in missing_logs:
+        summary['recordedToday']=None
+        summary['remainingToUserTargets']={}
+        remaining={}
+    if 'workout' in missing_logs:summary['workoutMinutesLast7Days']=None
+    if 'sleep' in missing_logs:summary['lastSleepHours']=None
     hour=int(context.get('hour',12))
     slot='breakfast' if hour<10 else 'lunch' if hour<15 else 'snack' if hour<18 else 'dinner'
     choices=[c for c in recipes if c['slot']==slot]

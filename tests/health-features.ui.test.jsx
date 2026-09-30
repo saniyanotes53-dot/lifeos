@@ -72,3 +72,13 @@ it('opens a dedicated meal dialog with inline preferences and omnivore selection
  await waitFor(()=>expect(onSaveProfile).toHaveBeenCalledWith(expect.objectContaining({age:25,diet:'omnivore',medicalStatus:'none'})));
  fireEvent.click(screen.getByRole('button',{name:'Close'}));expect(screen.queryByRole('dialog')).toBeNull();
 });
+it('opens preference correction when the server reports missing setup instead of requesting a report',async()=>{
+ userRequest.mockResolvedValue({blocked:true,needsSetup:true,message:'Complete age in Health preferences. No health report is required.'});
+ render(<NutritionStudio t={t} user={user} profile={profile} meals={[]} run={run} busy={false} onSaveProfile={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Open meal assistant'}));
+ fireEvent.click(screen.getByRole('checkbox'));
+ fireEvent.click(screen.getByRole('button',{name:'Suggest next meal & plan today'}));
+ await screen.findByText('Complete age in Health preferences. No health report is required.');
+ expect(screen.getByRole('button',{name:'Save health preferences'})).toBeTruthy();
+ expect(screen.queryByText('Review your daily plan')).toBeNull();
+});

@@ -5,16 +5,16 @@ import {userRequest} from '../../assistant/api';
 import {saveHealthRecord} from '../../firestore';
 import HealthProfile from './HealthProfile';
 import {NutrientLine,grid,validNumber} from './shared';
-export default function NutritionStudio({t,user,profile,meals,savedPlan,run,busy,onSaveProfile}){
+export default function NutritionStudio({t,user,profile={},meals=[],savedPlan,run,busy,onSaveProfile}){
  const [open,setOpen]=useState(false),[editing,setEditing]=useState(false),[localError,setLocalError]=useState('');
  const [result,setResult]=useState(null),[draft,setDraft]=useState(null),[consent,setConsent]=useState(false);
  useEffect(()=>{setDraft(null);setResult(null);},[profile.updatedAt]);
  const visible=draft||savedPlan?.plan||[];
  async function generate(){
-  setLocalError('');
+  setLocalError('');setResult(null);setDraft(null);
   try {
   const r=await userRequest(user,'/api/assistant','POST',{action:'health-plan',date:todayStr(),hour:new Date().getHours()});
-  setResult(r);if(!r.blocked)setDraft(r.plan.map(m=>({...m,portion:1})));
+  setResult(r);if(r.needsSetup)setEditing(true);if(!r.blocked){if(!Array.isArray(r.plan))throw Error('The meal planner returned an incomplete plan. Please retry.');setDraft(r.plan.map(m=>({...m,portion:1})));}
   } catch(e){setLocalError(e.message||'Could not create meal ideas. Please try again.');}
  }
  async function save(){await saveHealthRecord(user.uid,'mealPlans',todayStr(),{date:todayStr(),plan:visible,source:result?.source||savedPlan.source,generatedAt:result?.generatedAt||savedPlan.generatedAt,profileRevision:profile.updatedAt||''});setDraft(null);}
@@ -23,7 +23,7 @@ export default function NutritionStudio({t,user,profile,meals,savedPlan,run,busy
  return <><Card t={t}><h2>Your meal assistant</h2><p>Choose your next meal, review a daily plan, and save what works for you.</p><PrimaryButton t={t} onClick={()=>setOpen(true)}>Open meal assistant</PrimaryButton></Card>{open&&<Modal title="Life OS meal assistant" onClose={()=>setOpen(false)}><div style={{width:'min(900px,100%)',maxHeight:'90dvh',overflowY:'auto',background:t.bg,color:t.text,borderRadius:24,padding:20}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><h2>Meal assistant</h2><GhostButton t={t} onClick={()=>setOpen(false)}>Close</GhostButton></div><p role="status">{localError}</p>{(!profile.age||!profile.medicalStatus||editing)&&<HealthProfile key={profile.updatedAt||'new'} t={t} profile={profile} busy={busy} onSave={async p=>{try{await onSaveProfile(p);setEditing(false);setResult(null);}catch(e){setLocalError(e.message);}}}/>}{profile.age&&profile.medicalStatus&&!editing&&<GhostButton t={t} onClick={()=>setEditing(true)}>Edit health preferences</GhostButton>}<div style={{display:'grid',gap:16}}><Card t={t}><h2>What could I eat next?</h2><p>Use your saved preferences and available food, sleep and activity logs. You do not need to upload a health report. If you have no logs yet, you can still get general meal ideas.</p>
  <label style={{display:'flex',gap:10,lineHeight:1.6,marginBottom:16}}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>Use my health logs for this plan. Nutrient totals, my goal and activity summary may be sent to Google Gemini; my name and email are not included.</label>
  <PrimaryButton t={t} disabled={busy||!consent||!profile.age||!profile.medicalStatus} onClick={()=>run(generate,false)}>{busy?'Planning…':'Suggest next meal & plan today'}</PrimaryButton>
- {!profile.age&&<p>Enter your age and health considerations above, then save. Food logs and nutrient targets are optional.</p>}
+ {(!profile.age||!profile.medicalStatus)&&<p>Complete { !profile.age&&!profile.medicalStatus?'age and health considerations':!profile.age?'age':'health considerations'} above, then save. No health report is needed.</p>}
  {result?.dataWarnings?.length>0&&<p role="alert">Some saved logs are unavailable: {result.dataWarnings.join(', ')}. Meal ideas still use your saved food preferences; retry later for complete context.</p>}
  {result?.blocked&&<p role="status">{result.message}</p>}
  {result?.nextMeal&&<div style={{background:t.surface2,padding:18,borderRadius:18,marginTop:18}}><small>{result.selection}</small><h3>{result.nextMeal.name}</h3><p>{result.nextMeal.method}</p><NutrientLine values={result.nextMeal.nutrients}/><p>Selected for this time of day from meals matching your exclusions{Object.keys(result.summary.remainingToUserTargets).length?', considering the remaining amounts toward your own targets':''}.</p><small>Based on {result.summary.workoutMinutesLast7Days??'unknown'} activity minutes in 7 days · latest recorded sleep: {result.summary.lastSleepHours??'unknown'} hours.</small></div>}

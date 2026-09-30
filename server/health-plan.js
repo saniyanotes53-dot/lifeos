@@ -21,7 +21,7 @@ export async function healthPlan(req,user,request=fetch){
  const [meals,workouts,sleep]=logReads.map(r=>r.status==='fulfilled'?r.value:[]);
  const profile=decode({mapValue:{fields:p.fields||{}}});
  const pick=(row,keys)=>Object.fromEntries(keys.filter(k=>row[k]!==undefined).map(k=>[k,row[k]]));
- const payload={channel:'nutrition',context:{date,hour,profile:pick(profile,['age','medicalStatus','otherAllergies','allergies','diet','goal','targets']),meals:meals.filter(m=>m.date===date).map(m=>pick(m,['cal','protein','fat','carbs','fiber','calcium','iron','potassium'])),workouts:workouts.map(w=>pick(w,['minutes'])),sleep:sleep.map(s=>pick(s,['hours']))}};
+ const payload={channel:'nutrition',context:{date,hour,missingLogs,profile:pick(profile,['age','medicalStatus','otherAllergies','allergies','diet','goal','targets']),meals:meals.filter(m=>m.date===date).map(m=>pick(m,['cal','protein','fat','carbs','fiber','calcium','iron','potassium'])),workouts:workouts.map(w=>pick(w,['minutes'])),sleep:sleep.map(s=>pick(s,['hours']))}};
  if(JSON.stringify(payload).length>30000)throw Object.assign(Error('Health history is too large. Shorten notes and retry.'),{status:400});
  if(!process.env.CRON_SECRET)throw Object.assign(Error('The nutrition service needs server configuration.'),{status:503});
  const response=await request('https://lifeos53.vercel.app/api/deliver',{method:'POST',headers:{Authorization:`Bearer ${process.env.CRON_SECRET}`,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(27000)});

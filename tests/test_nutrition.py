@@ -61,3 +61,17 @@ class OmnivoreTests(unittest.TestCase):
  def test_missing_setup_identifies_fields_and_does_not_require_logs(self):
   result=engine.build_plan({'profile':{}})
   self.assertTrue(result['needsSetup']);self.assertIn('age and health considerations',result['message'])
+
+class ReportFreePlanningTests(unittest.TestCase):
+ def test_empty_food_log_and_no_report_still_produce_plan(self):
+  context={'date':'2026-09-30','hour':19,'profile':{'age':25,'medicalStatus':'none','diet':'omnivore'}}
+  result=engine.build_plan(context,lambda *a,**k:(_ for _ in ()).throw(OSError()))
+  self.assertEqual(len(result['plan']),4)
+  self.assertTrue(result['nextMeal'])
+  self.assertNotIn('blocked',result)
+ def test_unavailable_logs_are_unknown_before_gemini_selection(self):
+  context={'date':'2026-09-30','hour':12,'profile':{'age':25,'medicalStatus':'none'},'missingLogs':['food','workout','sleep']}
+  with patch.object(engine,'ai_choice',return_value=None) as choice:
+   engine.build_plan(context,lambda *a,**k:(_ for _ in ()).throw(OSError()))
+  summary=choice.call_args.args[1]
+  self.assertIsNone(summary['recordedToday']);self.assertIsNone(summary['workoutMinutesLast7Days']);self.assertIsNone(summary['lastSleepHours'])

@@ -1,0 +1,23 @@
+import React from 'react';
+import {it,expect,vi,afterEach} from 'vitest';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+vi.mock('../src/firestore',()=>({confirmAssistantProposal:vi.fn()}));
+vi.mock('../src/assistant/api',()=>({streamAssistant:vi.fn()}));
+import {streamAssistant} from '../src/assistant/api';
+import {confirmAssistantProposal} from '../src/firestore';
+import AssistantPanel from '../src/components/AssistantPanel';
+const t={surface:'#fff',surface2:'#eee',text:'#111',muted:'#555',line:'#ddd',a1:'#035',onAccent:'#fff'};
+afterEach(()=>{cleanup();vi.restoreAllMocks();});
+it('shares meals and health preferences only after consent with Gemini',async()=>{
+ Element.prototype.scrollIntoView=vi.fn();
+ streamAssistant.mockResolvedValue({reply:'A meal idea',actions:[],navigation:null});
+ const user={uid:'health-context-test'};
+ render(<AssistantPanel t={t} user={user} data={{meals:[{id:'m',cal:450,name:'Lunch'}],healthProfile:{diet:'omnivore'}}}/>);
+ const send=()=>{fireEvent.change(screen.getByRole('textbox',{name:'Message Gemini'}),{target:{value:'Suggest dinner'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));};
+ send();await waitFor(()=>expect(streamAssistant).toHaveBeenCalledTimes(1));
+ expect(streamAssistant.mock.calls[0][1].context.healthProfile).toBeUndefined();
+ fireEvent.click(screen.getByLabelText(/Meals, health preferences/));
+ send();await waitFor(()=>expect(streamAssistant).toHaveBeenCalledTimes(2));
+ expect(streamAssistant.mock.calls[1][1]).toMatchObject({context:{healthProfile:{diet:'omnivore'},meals:[{id:'m',cal:450,name:'Lunch'}]}});
+ expect(confirmAssistantProposal).not.toHaveBeenCalled();
+});

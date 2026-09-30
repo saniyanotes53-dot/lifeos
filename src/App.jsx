@@ -43,7 +43,6 @@ export default function App() {
   useLocalDay();
   const [introComplete,setIntroComplete]=useState(false);
   useEffect(()=>{const timer=setTimeout(()=>setIntroComplete(true),3500);return()=>clearTimeout(timer);},[]);
-  const [operatorOpen,setOperatorOpen]=useState(false);
   const [healthSettings,setHealthSettings]=useState([]);
   const [assistantOpen,setAssistantOpen]=useState(false);
   const [assistantPrompt,setAssistantPrompt]=useState('');
@@ -141,9 +140,9 @@ export default function App() {
 
   const handleLogout = async () => {
     await disableReminders(user).catch(() => {});
-    if(user?.uid){clearSession(user.uid);clearSession(user.uid+':groq');}
+    if(user?.uid){clearSession(user.uid);}
     await logout();
-    setOperatorOpen(false);setHealthSettings([]);setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
+    setHealthSettings([]);setAssistantOpen(false);setSubscriptions([]);setBillSplits([]);
     setTasks([]); setSleep([]); setWorkouts([]); setMeals([]);
     setTx([]); setBlocks([]); setWallets([]); setCategoryBudgets([]); setLoans([]); setBodyMetrics([]);
     setTab("home");
@@ -192,7 +191,6 @@ export default function App() {
           }
         `}</style>
 
-        {operatorOpen&&<Modal title="Life OS Operator" onClose={()=>setOperatorOpen(false)}><Card t={t} variant="glass" style={{width:'100%',maxWidth:760,maxHeight:'90dvh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between'}}><h2>Life OS Operator · Groq</h2><IconBtn t={t} label="Close operator" onClick={()=>setOperatorOpen(false)}>×</IconBtn></div><AssistantPanel provider="groq" t={t} user={user} data={assistantData} page={tab} onNavigate={screen=>{setTab(screen);setOperatorOpen(false);}}/></Card></Modal>}
         {assistantOpen&&<Modal title="Ask Gemini" onClose={()=>setAssistantOpen(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:150,display:'flex',alignItems:'center',justifyContent:'center',padding:12}}><Card t={t} variant="glass" style={{width:'100%',maxWidth:720,maxHeight:'90vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><strong>Gemini · {tab}</strong><IconBtn t={t} label="Close assistant" onClick={()=>setAssistantOpen(false)}>×</IconBtn></div><AssistantPanel key={user.uid} t={t} user={user} data={assistantData} page={tab} initialPrompt={assistantPrompt}/></Card></Modal>}
         {/* Global Command Palette Spotlight (Ctrl+K) */}
         <CommandPalette
@@ -354,7 +352,6 @@ export default function App() {
             </div>
 
             <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button aria-label="Open Groq operator" className="press" onClick={()=>setOperatorOpen(true)} style={{border:`1px solid ${t.line}`,background:t.surface2,color:t.a1,borderRadius:12,padding:10}}>Operator</button>
               <button aria-label="Ask Gemini" title="Ask Gemini about this screen" className="press" onClick={()=>askAssistant()} style={{border:`1px solid ${t.line}`,background:t.surface2,color:t.a1,borderRadius:12,padding:10}}><MessageCircle size={20}/></button>
               {/* Spotlight search pill */}
               <button
