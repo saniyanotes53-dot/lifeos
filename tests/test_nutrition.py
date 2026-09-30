@@ -75,3 +75,20 @@ class ReportFreePlanningTests(unittest.TestCase):
    engine.build_plan(context,lambda *a,**k:(_ for _ in ()).throw(OSError()))
   summary=choice.call_args.args[1]
   self.assertIsNone(summary['recordedToday']);self.assertIsNone(summary['workoutMinutesLast7Days']);self.assertIsNone(summary['lastSleepHours'])
+
+class HealthChoiceTests(unittest.TestCase):
+ def test_unsure_returns_general_ideas_without_personal_targets(self):
+  context={'date':'2026-09-30','hour':12,'profile':{'age':25,'medicalStatus':'unsure','diet':'omnivore','allergies':['fish'],'targets':{'protein':90}},'meals':[{'protein':10}]}
+  with patch.object(engine,'ai_choice',return_value=None) as ai:
+   result=engine.build_plan(context,lambda *a,**k:(_ for _ in ()).throw(OSError()))
+  self.assertTrue(result['generalOnly']);self.assertEqual(len(result['plan']),4)
+  self.assertEqual(ai.call_args.args[1]['remainingToUserTargets'],{})
+  self.assertIsNone(ai.call_args.args[1]['recordedToday'])
+  self.assertNotIn('salmon_rice',[m['id'] for m in result['alternatives']])
+ def test_confirmed_conditions_name_the_saved_choice(self):
+  for status,label in [('condition','Medical condition / prescribed diet'),('pregnancy','Pregnant or breastfeeding'),('eating-disorder','Current or past eating disorder')]:
+   result=engine.build_plan({'profile':{'age':25,'medicalStatus':status}},lambda *a,**k:self.fail('network'))
+   self.assertTrue(result['blocked']);self.assertTrue(result['canEditPreferences']);self.assertIn(label,result['message'])
+ def test_unknown_legacy_choice_requests_correction_not_a_diagnosis(self):
+  result=engine.build_plan({'profile':{'age':25,'medicalStatus':'old-value'}})
+  self.assertTrue(result['needsSetup']);self.assertNotIn('require individual dietary',result['message'])

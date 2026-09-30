@@ -22,5 +22,5 @@ export async function mealReply(req,user,context,planner=healthPlan){
  const m=plan.nextMeal;
  const ingredients=m.ingredients.map(i=>`${i.grams} g ${i.name}`).join(', ');
  const daily=plan.plan.map(p=>`${p.slot}: ${p.name}`).join('\n');
- return {...base,reply:`Next meal: ${m.name}\n${ingredients}\n${m.method}\n\nSample day:\n${daily}\n\n${plan.selection}. Based on your saved preferences and available logs; these are general food ideas, not a medical diet.${plan.dataWarnings?.length?' Some logs could not load: '+plan.dataWarnings.join(', ')+'.':''}\nOpen Health → Food & plan → Open meal assistant to generate, review and save a plan. Nothing has been saved from this chat.`};
+ return {...base,reply:`Next meal: ${m.name}\n${ingredients}\n${m.method}\n\nSample day:\n${daily}\n\n${plan.selection}. ${plan.generalOnly?plan.modeMessage:'Based on your saved preferences and available logs; these are general food ideas, not a medical diet.'}${plan.dataWarnings?.length?' Some logs could not load: '+plan.dataWarnings.join(', ')+'.':''}\nOpen Health → Food & plan → Open meal assistant to generate, review and save a plan. Nothing has been saved from this chat.`};
 }

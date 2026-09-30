@@ -93,8 +93,14 @@ def build_plan(context, fetch=request_json):
         return {'blocked':True,'needsSetup':True,'message':'Complete '+ ' and '.join(missing)+' in Health preferences, save, then select Suggest next meal & plan today. A health report, food logs and nutrient targets are not required.'}
     if age<18 or age>100:
         return {'blocked':True,'message':'This meal planner supports adults aged 18–100. You can still log meals; ask a qualified clinician for age-appropriate planning.'}
-    if profile.get('medicalStatus')!='none':
-        return {'blocked':True,'message':'Your saved health considerations require individual dietary guidance. This general meal planner cannot safely tailor a medical, pregnancy or eating-disorder diet. Use your clinician’s plan and continue logging meals here.'}
+    status=profile.get('medicalStatus')
+    labels={'condition':'Medical condition / prescribed diet','pregnancy':'Pregnant or breastfeeding','eating-disorder':'Current or past eating disorder'}
+    if status in labels:
+        return {'blocked':True,'reason':'personalized-diet-unavailable','canEditPreferences':True,
+                'message':'Your saved choice is “'+labels[status]+'”. Life OS cannot create a personalised diet for this choice. You can keep logging meals from your clinician’s plan. If this was selected by mistake, edit your health preferences. No report upload is needed.'}
+    if status not in ['none','unsure']:
+        return {'blocked':True,'needsSetup':True,'message':'Your saved health consideration is no longer recognised. Choose an option in Health preferences and save. No report upload is needed.'}
+    general_only=status=='unsure'
     if profile.get('otherAllergies','').strip():
         return {'blocked':True,'message':'Your profile lists an allergy outside our verified recipe filters. We cannot safely recommend these recipes for it. Keep that allergy recorded and use a dietitian-approved plan.'}
     allergies=profile.get('allergies',[])
@@ -132,13 +138,17 @@ def build_plan(context, fetch=request_json):
         preference=0.05 if diet=='omnivore' and c['id'] in ['chicken_rice','salmon_rice'] else 0
         return preference+sum(min(c['nutrients'].get(k) or 0,v)/max(v,1) for k,v in remaining.items())
     choices=sorted(choices,key=score,reverse=True)
+    if general_only:
+        remaining={}
+        summary={'recordedToday':None,'remainingToUserTargets':{},'workoutMinutesLast7Days':None,'lastSleepHours':None,'goal':'general food ideas'}
+        choices=sorted(choices,key=score,reverse=True)
     chosen=ai_choice(choices,summary,fetch)
     daily=[]
     for meal_slot in ['breakfast','lunch','snack','dinner']:
         options=sorted([c for c in recipes if c['slot']==meal_slot],key=score,reverse=True)
         if options:daily.append(options[0])
     complete=all(all(finite(m.get(k)) is not None for k in NUTRIENTS.values()) for m in context.get('meals',[])) and bool(context.get('meals'))
-    return {'date':context['date'],'generatedAt':datetime.now(timezone.utc).isoformat(),'source':source,'summary':summary,
+    return {'generalOnly':general_only,'modeMessage':'You chose Unsure / prefer not to say. These are general food ideas filtered by your food preference and recorded allergies, without personal nutrient targets or medical tailoring.' if general_only else '', 'date':context['date'],'generatedAt':datetime.now(timezone.utc).isoformat(),'source':source,'summary':summary,
       'nextMeal':chosen or choices[0],'selection':'AI-assisted selection' if chosen else 'Nutrition-rule selection · AI unavailable',
       'plan':daily,'alternatives':recipes,'totals':{k:round(sum(c['nutrients'].get(k) or 0 for c in daily),1) for k in NUTRIENTS.values()},
       'notes':['General food ideas, not a medical diet or diagnosis. Recorded gaps are not proven deficiencies.',

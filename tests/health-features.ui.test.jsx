@@ -82,3 +82,17 @@ it('opens preference correction when the server reports missing setup instead of
  expect(screen.getByRole('button',{name:'Save health preferences'})).toBeTruthy();
  expect(screen.queryByText('Review your daily plan')).toBeNull();
 });
+it('explains general-only planning for undisclosed health considerations',async()=>{
+ userRequest.mockResolvedValue({...response,generalOnly:true,modeMessage:'General food ideas without personal nutrient targets.'});
+ render(<NutritionStudio t={t} user={user} profile={{...profile,medicalStatus:'unsure'}} meals={[]} run={run} busy={false}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Open meal assistant'}));fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Suggest next meal & plan today'}));
+ await screen.findByText('General food ideas without personal nutrient targets.');
+ expect(screen.getByText('General ideas · no personal nutrient targets applied')).toBeTruthy();
+});
+it('lets a user review a mistaken health choice directly from the restriction message',async()=>{
+ userRequest.mockResolvedValue({blocked:true,canEditPreferences:true,message:'Your saved choice is Medical condition / prescribed diet.'});
+ render(<NutritionStudio t={t} user={user} profile={profile} meals={[]} run={run} busy={false} onSaveProfile={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Open meal assistant'}));fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Suggest next meal & plan today'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Review saved health choice'}));
+ expect(screen.getByRole('button',{name:'Save health preferences'})).toBeTruthy();
+});
