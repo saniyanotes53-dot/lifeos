@@ -8,6 +8,8 @@ export async function readGeminiStream(body,onReply){
   const match=/"reply"\s*:\s*"((?:\\.|[^"\\])*)/.exec(output);
   if(match){try{const text=JSON.parse('"'+match[1]+'"');if(text!==last){last=text;onReply(text.slice(0,12000));}}catch{}}
  }
+ try{
  while(true){const {value,done}=await reader.read();buffer+=decoder.decode(value,{stream:!done});const lines=buffer.split('\n');buffer=lines.pop();for(const item of lines)line(item.trim());if(done){if(buffer.trim())line(buffer.trim());break;}}
  return output;
+ }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
 }

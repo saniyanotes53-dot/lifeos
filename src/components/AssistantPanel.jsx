@@ -39,8 +39,8 @@ export default function AssistantPanel({t,user,data={},page='assistant',initialP
   set({busy:true,error:'',status:'',partial:'',proposal:null,failedMessage:'',messages:retryMessage?messages:[...messages,{role:'user',text:message}].slice(-80)});setText('');
   const previous=proposal?{role:'assistant',text:'Unconfirmed proposal for revision only: '+JSON.stringify(proposal.actions.map(({before,...action})=>action))}:null;
   try{
-   const result=await streamAssistant(user,{text:message,history:[...history,...(previous?[previous]:[])].slice(-40),context:context()},partial=>set({partial}),()=>set({status:'Reconnecting to the assistant…'}));
-   set({status:'',messages:[...session(uid).messages,{role:'assistant',text:result.reply}].slice(-80),history:[...history,{role:'user',text:message},{role:'assistant',text:result.reply}].slice(-40),memory:result.memory??memory,proposal:result.actions?.length?{proposalId:crypto.randomUUID(),createdAt:Date.now(),actions:result.actions}:null});
+   const result=await streamAssistant(user,{text:message,history:[...history,...(previous?[previous]:[])].slice(-40),context:context()},partial=>set({partial,status:''}),()=>set({status:'Reconnecting to the assistant…'}));
+   set({status:'',partial:'',messages:[...session(uid).messages,{role:'assistant',text:result.reply}].slice(-80),history:[...history,{role:'user',text:message},{role:'assistant',text:result.reply}].slice(-40),memory:result.memory??memory,proposal:result.actions?.length?{proposalId:crypto.randomUUID(),createdAt:Date.now(),actions:result.actions}:null});
      if(result.actions?.length&&directMode&&!result.actions.some(a=>a.type.startsWith('delete')))await apply(true);
   }catch(e){set({status:'',error:['TimeoutError','AbortError'].includes(e.name)?'The assistant took too long to respond. Please retry your message.':e instanceof TypeError?'The connection could not be restored. Check your internet and retry.':e.message,proposal,failedMessage:message});}finally{set({busy:false,partial:''});}
  }

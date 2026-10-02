@@ -22,3 +22,24 @@ test('interrupted streaming clears the draft and returns one completed proposal'
   try{const result=await streamAssistant({getIdToken:async()=>''},{text:'hello'},text=>seen.push(text),()=>retries.push(true));assert.equal(result.reply,'Ready');assert.equal(calls,2);assert.deepEqual(seen,['Incomplete draft','','Ready']);assert.equal(retries.length,1);}
   finally{global.fetch=original;}
 });
+
+test('a completed reply finishes immediately even if the connection remains open',async()=>{
+ const original=global.fetch;let cancelled=false,calls=0;
+ global.fetch=async()=>{calls++;return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode(JSON.stringify({type:'done',result:{reply:'Complete',actions:[]}})+'\n'));},cancel(){cancelled=true;}}),{headers:{'content-type':'application/x-ndjson'}});};
+ try{
+  const result=await Promise.race([streamAssistant({getIdToken:async()=>''},{text:'hi'},()=>{}),new Promise((_,reject)=>setTimeout(()=>reject(Error('did not finish')),1000))]);
+  assert.equal(result.reply,'Complete');assert.equal(calls,1);assert.equal(cancelled,true);
+ }finally{global.fetch=original;}
+});
+
+import {userRequest} from '../src/assistant/api.js';
+test('meal planning recovers expired authentication without retrying unrelated writes',async()=>{
+ const original=global.fetch;let calls=0;const tokens=[];
+ const user={getIdToken:async refresh=>{tokens.push(refresh);return 'token';}};
+ global.fetch=async()=>++calls===1?Response.json({error:'Expired'},{status:401}):Response.json({plan:[]});
+ try{
+  assert.deepEqual(await userRequest(user,'/api/assistant','POST',{action:'health-plan'}),{plan:[]});
+  assert.deepEqual(tokens,[false,true]);
+  calls=0;await assert.rejects(userRequest(user,'/api/other','POST',{}),/Expired/);assert.equal(calls,1);
+ }finally{global.fetch=original;}
+});

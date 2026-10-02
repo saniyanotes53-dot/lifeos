@@ -1,12 +1,15 @@
 import {withReadRetry,readResponseError} from './request.js';
 export async function userRequest(user,path,method='GET',body){
+  const operation=async token=>{
+    const response=await fetch(path,{method,signal:AbortSignal.timeout(60000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+    if(!response.ok)throw await readResponseError(response);
+    if(!response.headers.get('content-type')?.includes('application/json'))throw Object.assign(new Error('The assistant service is temporarily unavailable. Please retry.'),{status:502});
+    return response.json().catch(()=>{throw Object.assign(new Error('The reply was interrupted. Please retry.'),{status:502});});
+  };
+  // Meal planning is read-only. Do not automatically repeat record writes.
+  if(method==='GET'||(path==='/api/assistant'&&body?.action==='health-plan'))return withReadRetry(user,operation);
   if(!user)throw new Error('Sign in to continue.');
-  const token=await user.getIdToken();
-  const response=await fetch(path,{method,signal:AbortSignal.timeout(60000),headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
-  const result=await response.json().catch(()=>({}));
-  if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('The assistant API is unavailable. Deploy this project with Vercel, including its api folder.');
-  if(!response.ok)throw new Error(result.error||'This service is not configured yet. Please try again later.');
-  return result;
+  return operation(await user.getIdToken());
 }
 
 export async function streamAssistant(user,body,onReply,onRetry=()=>{}){
@@ -23,7 +26,7 @@ export async function streamAssistant(user,body,onReply,onRetry=()=>{}){
    if(event.type==='done')result=event.result;
   };
   try{
-   while(true){const {value,done}=await reader.read();buffer+=decoder.decode(value,{stream:!done});const lines=buffer.split('\n');buffer=lines.pop();for(const item of lines)line(item);if(done){if(buffer.trim())line(buffer);break;}}
+   while(true){const {value,done}=await reader.read();buffer+=decoder.decode(value,{stream:!done});const lines=buffer.split('\n');buffer=lines.pop();for(const item of lines){line(item);if(result)break;}if(result)break;if(done){if(buffer.trim())line(buffer);break;}}
   }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
   if(!result||typeof result.reply!=='string'||!Array.isArray(result.actions))throw Object.assign(new Error('The connection ended before the reply was complete. Please try again.'),{retryable:true});
   return result;
