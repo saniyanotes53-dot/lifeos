@@ -40,6 +40,13 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
 
   // Borrow/Lend State
   const [showAddLoan, setShowAddLoan] = useState(false);
+  const [editingLoan, setEditingLoan] = useState(null);
+  const openLoan = (loan=null) => {
+    setEditingLoan(loan);setLoanPerson(loan?.person||'');setLoanAmount(loan ? String(loan.amount) : '');
+    setLoanType(loan?.type||'lend');setLoanDueDate(loan?.dueDate||'');setLoanEmail(loan?.email||'');
+    setLoanError('');setShowAddLoan(true);
+  };
+  const closeLoan = () => {if(!loanBusy)setShowAddLoan(false);};
   const [loanEmail,setLoanEmail]=useState(''),[loanError,setLoanError]=useState(''),[loanBusy,setLoanBusy]=useState(false);
   const [loanPerson, setLoanPerson] = useState("");
   const [loanAmount, setLoanAmount] = useState("");
@@ -102,15 +109,13 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
     if(!loanPerson.trim()||!Number.isFinite(Number(loanAmount))||Number(loanAmount)<=0){setLoanError('Enter a name and positive amount.');return;}
     if(loanEmail&&!validEmail(loanEmail)){setLoanError('Check the email address.');return;}
     setLoanBusy(true);try{
-    await addItem(userId, "loans", {
-      person: loanPerson.trim(),
-      email: loanEmail.trim(),
-      amount: Number(loanAmount),
-      type: loanType,
-      dueDate: loanDueDate || todayStr(),
-      settled: false,
-      createdAt: todayStr()
-    });
+    const changes = {
+      person: loanPerson.trim(), email: loanEmail.trim(), amount: Number(loanAmount),
+      type: loanType, dueDate: loanDueDate || (editingLoan ? '' : todayStr())
+    };
+    if(editingLoan) await updateItem(userId, "loans", editingLoan.id, changes);
+    else await addItem(userId, "loans", {...changes, settled:false, createdAt:todayStr()});
+    setNotice(editingLoan ? 'Borrow / lend entry updated.' : 'Borrow / lend entry added.');
     setLoanPerson("");
     setLoanAmount("");
     setShowAddLoan(false);setLoanEmail('');
@@ -304,7 +309,7 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Borrow & Lend Tracker</h2>
                 <div style={{ fontSize: 12, color: t.muted }}>Keep track of debt & money owed by/to contacts</div>
               </div>
-              <PrimaryButton t={t} onClick={() => setShowAddLoan(true)} style={{ width: "auto", padding: "8px 16px" }}>
+              <PrimaryButton t={t} onClick={() => openLoan()} style={{ width: "auto", padding: "8px 16px" }}>
                 + Add Record
               </PrimaryButton>
             </div>
@@ -325,7 +330,7 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
                       <div style={{ fontSize: 15, fontWeight: 800, color: ln.type === "lend" ? t.good : t.warm }}>
                         {ln.settled?"Paid":`${ln.type === "lend" ? "+" : "-"}₹${Number(ln.amount || 0).toLocaleString()}`}
                       </div>
-                      <button onClick={async()=>{try{await updateItem(userId,"loans",ln.id,{settled:!ln.settled});}catch(e){setLoanError(e.message);}}}>{ln.settled?"Reopen":"Mark paid"}</button><IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "loans", ln.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
+                      <button onClick={()=>openLoan(ln)} aria-label={`Edit entry for ${ln.person}`}>Edit</button><button onClick={async()=>{try{await updateItem(userId,"loans",ln.id,{settled:!ln.settled});}catch(e){setLoanError(e.message);}}}>{ln.settled?"Reopen":"Mark paid"}</button><IconBtn t={t} label="Delete entry" onClick={() => deleteItem(userId, "loans", ln.id)}><X size={15} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
                     </div>
                   </Card>
                 ))}
@@ -406,14 +411,14 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
 
         {/* ADD BORROW/LEND MODAL */}
         {showAddLoan && (
-          <Modal title="Borrow or lend" onClose={() => setShowAddLoan(false)} style={{
+          <Modal title={editingLoan ? "Edit borrow or lend" : "Borrow or lend"} onClose={closeLoan} style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100,
             display: "flex", alignItems: "center", justifyContent: "center", padding: 20
           }}>
             <Card t={t} style={{ width: "100%", maxWidth: 400, padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>Track Borrow / Lend</h3>
-                <IconBtn t={t} label="Close dialog" onClick={() => setShowAddLoan(false)}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: t.text, margin: 0 }}>{editingLoan ? "Edit Borrow / Lend" : "Track Borrow / Lend"}</h3>
+                <IconBtn t={t} label="Close dialog" onClick={closeLoan}><X size={18} color={t.muted} style={{ cursor: "pointer" }}  /></IconBtn>
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <button
@@ -458,7 +463,7 @@ export default function BudgetScreen({ t, tx = [], userId, user, wallets = [], c
                 value={loanDueDate}
                 onChange={e => setLoanDueDate(e.target.value)}
               />
-              <input aria-label="Contact email" type="email" placeholder="Contact email (optional)" value={loanEmail} onChange={e=>setLoanEmail(e.target.value)} style={inputStyle(t)}/>{loanError&&<p role="alert">{loanError}</p>}<PrimaryButton t={t} disabled={loanBusy} onClick={handleAddLoan}>Save Record</PrimaryButton>
+              <input aria-label="Contact email" type="email" placeholder="Contact email (optional)" value={loanEmail} onChange={e=>setLoanEmail(e.target.value)} style={inputStyle(t)}/>{loanError&&<p role="alert">{loanError}</p>}<PrimaryButton t={t} disabled={loanBusy} onClick={handleAddLoan}>{loanBusy ? 'Saving…' : editingLoan ? 'Save changes' : 'Save Record'}</PrimaryButton>
             </Card>
           </Modal>
         )}

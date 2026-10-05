@@ -1,0 +1,26 @@
+import React from 'react';
+import {it,expect,vi,afterEach} from 'vitest';
+import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
+import BudgetScreen from '../src/components/BudgetScreen';
+import {updateItem,addItem} from '../src/firestore';
+vi.mock('../src/firestore',()=>({updateItem:vi.fn(),addItem:vi.fn(),deleteItem:vi.fn()}));
+vi.mock('../src/components/ProductSuggestions',()=>({default:()=>null}));
+vi.mock('../src/components/SectionReset',()=>({default:()=>null}));
+vi.mock('../src/components/EmailReminderToggle',()=>({default:()=>null}));
+vi.mock('recharts',()=>Object.fromEntries(['ResponsiveContainer','PieChart','Pie','Cell','BarChart','Bar','XAxis','YAxis','Tooltip','CartesianGrid'].map(key=>[key,({children})=><div>{children}</div>])));
+afterEach(cleanup);
+it('edits an existing loan without resetting paid/reminder state; retains failed edits',async()=>{
+ updateItem.mockRejectedValueOnce(Error('Save failed')).mockResolvedValueOnce();
+ render(<BudgetScreen t={{}} userId="owner" loans={[{id:'loan-1',person:'Ali',amount:80,type:'lend',dueDate:'2026-10-10',email:'ali@example.com',settled:true,emailReminders:true}]}/>);
+ fireEvent.click(screen.getByText('More'));fireEvent.click(screen.getByText('Borrow & lend'));
+ fireEvent.click(screen.getByLabelText('Edit entry for Ali'));
+ expect(screen.getByLabelText('Loan amount').value).toBe('80');
+ fireEvent.change(screen.getByLabelText('Loan amount'),{target:{value:'150'}});
+ fireEvent.click(screen.getByText('Save changes'));
+ await waitFor(()=>expect(screen.getAllByRole('alert')[0].textContent).toContain('Save failed'));
+ expect(screen.getByLabelText('Loan amount').value).toBe('150');
+ fireEvent.click(screen.getByText('Save changes'));
+ await waitFor(()=>expect(screen.queryByLabelText('Loan amount')).toBeNull());
+ expect(updateItem).toHaveBeenLastCalledWith('owner','loans','loan-1',{person:'Ali',amount:150,type:'lend',dueDate:'2026-10-10',email:'ali@example.com'});
+ expect(addItem).not.toHaveBeenCalled();
+});
