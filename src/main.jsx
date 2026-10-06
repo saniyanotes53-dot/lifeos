@@ -1,4 +1,5 @@
 import React from "react";
+import { Analytics } from "@vercel/analytics/react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import {ProductCatalogProvider} from "./catalog/ProductCatalog";
@@ -10,5 +11,12 @@ import "./liquid-system.css";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     {/^\/admin\/?$/.test(window.location.pathname) ? <React.Suspense fallback={<p>Loading admin…</p>}><ProductAdmin/></React.Suspense> : <ProductCatalogProvider><App /></ProductCatalogProvider>}
+    {import.meta.env.PROD && <Analytics beforeSend={event => {
+      const url = new URL(event.url);
+      if (/^\/admin(?:\/|$)/.test(url.pathname)) return null;
+      // Never include reset codes, email addresses or other URL parameters.
+      url.search = ''; url.hash = '';
+      return {...event, url: url.toString()};
+    }} />}
   </React.StrictMode>
 );
