@@ -98,3 +98,22 @@ export async function saveHealthRecord(uid,name,id,data){
 }
 
 export async function readActiveWorkout(uid){const snap=await getDoc(doc(db,"users",uid,"workoutSessions","active"));return snap.exists()?snap.data().session:null;}
+
+export async function copyTimetableDay(uid, source, target) {
+ const {planDayCopy}=await import('./utils/timetable-copy.js');
+ const ownerRef=doc(db,'users',uid);
+ const revision=(await getDoc(ownerRef)).data()?.assistantRevision||0;
+ const snapshot=await getDocs(col(uid,'timetable'));
+ const blocks=snapshot.docs.map(d=>({...d.data(),id:d.id}));
+ const items=planDayCopy(blocks,source,target);
+ return runTransaction(db,async tx=>{
+  const owner=await tx.get(ownerRef);
+  if((owner.data()?.assistantRevision||0)!==revision)throw Error('Your timetable changed. Preview the copy again.');
+  const refs=items.map(item=>doc(db,'users',uid,'timetable',item.id));
+  const saved=await Promise.all(refs.map(ref=>tx.get(ref)));
+  if(saved.some(s=>s.exists()))throw Error('This timetable has already been copied.');
+  items.forEach((item,i)=>{const {id,...data}=item;const date=parseLocalDate(target);const [h,m]=item.time.split(':').map(Number);date.setHours(h,m,0,0);tx.set(refs[i],{...data,remindAt:date.getTime()});});
+  tx.set(ownerRef,{assistantRevision:(owner.data()?.assistantRevision||0)+1},{merge:true});
+  return items.length;
+ });
+}

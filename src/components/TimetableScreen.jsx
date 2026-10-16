@@ -1,3 +1,5 @@
+import {planDayCopy} from "../utils/timetable-copy";
+import {copyTimetableDay} from "../firestore";
 import { IconBtn } from "./primitives";
 import React, { useState, useEffect } from "react";
 import {
@@ -12,6 +14,7 @@ import { enableReminders, disableReminders, remindersEnabled } from "../notifica
 import { getPushState, registerPush, unregisterPush } from "../cloud-notifications";
 
 export default function TimetableScreen({ t, blocks = [], tasks = [], userId, user }) {
+  const [copyDate,setCopyDate]=useState(shiftDate(todayStr(),1)),[copyPreview,setCopyPreview]=useState(null),[copyBusy,setCopyBusy]=useState(false),[copyMessage,setCopyMessage]=useState("");
   const [view, setView] = useState("day"); // "day" or "week"
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [time, setTime] = useState("09:00");
@@ -197,6 +200,15 @@ export default function TimetableScreen({ t, blocks = [], tasks = [], userId, us
           </div>
         </div>
 
+        <Card t={t}>
+          <h3>Copy this day’s timetable</h3>
+          <p>Copies start incomplete and are independent of the original tasks.</p>
+          <label>Destination date <input type="date" value={copyDate} onChange={e=>{setCopyDate(e.target.value);setCopyPreview(null);}} style={inputStyle(t)}/></label>
+          <button onClick={()=>{setCopyDate(shiftDate(selectedDate,1));setCopyPreview(null);}}>Next day</button>
+          <button onClick={()=>{try{setCopyPreview({source:selectedDate,target:copyDate,items:planDayCopy(blocks,selectedDate,copyDate)});setCopyMessage('');}catch(e){setCopyPreview(null);setCopyMessage(e.message);}}}>Preview copy</button>
+          {copyPreview&&<div><p>{copyPreview.source} → {copyPreview.target}</p>{copyPreview.items.map(b=><p key={b.id}>{b.time} · {b.label}</p>)}<PrimaryButton t={t} disabled={copyBusy} onClick={async()=>{setCopyBusy(true);try{const count=await copyTimetableDay(userId,copyPreview.source,copyPreview.target);setCopyPreview(null);setCopyMessage(`Copied ${count} blocks.`);}catch(e){setCopyMessage(e.message);}finally{setCopyBusy(false);}}}>{copyBusy?'Copying…':'Confirm copy'}</PrimaryButton></div>}
+          {copyMessage&&<p role="status">{copyMessage}</p>}
+        </Card>
         {/* Browser push notification banner */}
         <Card t={t} style={{ borderColor: backgroundPushOn ? t.a1 : t.line, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
