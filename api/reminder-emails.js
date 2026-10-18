@@ -1,3 +1,4 @@
+import paymentPage from '../server/payment-page.js';
 import {reminderPreferenceId,unsubscribeUrl,handleUnsubscribe} from '../server/reminder-preferences.js';
 import {renderPaymentEmail} from '../server/payment-email.js';
 import {transport} from '../server/delivery.js';
@@ -6,6 +7,7 @@ import {createHash} from 'node:crypto';
 import {mailReady,adminToken,reminderDocuments,reminderRecipients,reminderOwner} from '../server/reminder-mail.js';
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
+ if(req.query?.pay)return paymentPage(req,res);
  if(req.query?.unsubscribe)return handleUnsubscribe(req,res,{adminToken,dbRequest});
  if(req.query?.status==='1')return res.json({configured:mailReady(),enabled:mailReady()&&process.env.REMINDER_EMAILS_ENABLED==='true'});
  if(!process.env.CRON_SECRET||req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)return res.status(401).json({error:'Unauthorized'});

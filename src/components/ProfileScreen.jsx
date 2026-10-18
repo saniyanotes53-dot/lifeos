@@ -1,3 +1,4 @@
+import PaymentProfile from './PaymentProfile';
 import CloudNotifications from './CloudNotifications';
 import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Palette, Bell, LogOut, Check, ShieldCheck, Sun, Moon } from "lucide-react";
@@ -417,6 +418,7 @@ export default function ProfileScreen({ t, user, theme, setTheme, scheme, setSch
           <CloudNotifications t={t} user={user} />
         </Card>
 
+        <PaymentProfile t={t} user={user}/>
         {/* Help & Guide */}
         <SectionLabel t={t} text="Help & Resources" />
         <Card t={t} style={{ padding: 18 }}>

@@ -1,20 +1,55 @@
 rules_version = '2';
+// Private users/{uid}: legacy app records plus journalEntries, journalPhotos,
+// journalOptions and dailyTrackers. Ownership comes only from the path/Auth UID.
+// New journal records have bounded, explicit schemas on create AND update.
 service cloud.firestore {
-  match /databases/{database}/documents {
-    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
-    match /users/{uid} {
-      allow read, create, update: if owner(uid);
-      // Account removal is an authenticated server operation; no orphaned subcollections.
-      allow delete: if false;
-      match /{collection}/{id} {
-        allow read, write: if owner(uid) && collection in [
-          'tasks', 'timetable', 'transactions', 'wallets', 'categoryBudgets',
-          'loans', 'subscriptions', 'billSplits', 'sleep', 'workouts', 'meals',
-          'bodyMetrics', 'healthSettings', 'mealPlans', 'workoutSessions',
-          'notificationSettings', 'pushSubscriptions'
-        ];
-      }
-    }
-    // Mail receipts, reset tokens, counters and admin settings are server-only.
+ match /databases/{database}/documents {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function short(s,n) { return s is string && s.size() <= n; }
+  function day(d) { return d is string && d.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}'); }
+  function photo(s) { return short(s,120000) && (s == '' || s.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')); }
+  function entry(d,id) {
+   return d.keys().hasOnly(['date','title','body','dayType','updatedAt']) && d.date == id && day(d.date) && short(d.title,160) && short(d.body,20000) && short(d.dayType,80) && d.updatedAt == request.time;
   }
+  function photos(d,id) {
+   return d.keys().hasOnly(['date','photo0','photo1','photo2']) && d.date == id && day(d.date) && photo(d.photo0) && photo(d.photo1) && photo(d.photo2);
+  }
+  function option(d) {
+   return d.keys().hasOnly(['kind','label','text','behavior','hidden']) && d.kind in ['day','template','attendance-category','attendance-status','namaz-status','hifz-status','plugin'] && short(d.label,80) && d.label.size()>0 && short(d.text,10000) && d.behavior in ['none','missed','complete','made-up'] && d.hidden is bool;
+  }
+  function tracker(d) {
+   return d.keys().hasOnly(['date','type','category','status','behavior','surah','fromAyah','toAyah','juz','note','updatedAt']) && day(d.date) && d.type in ['attendance','namaz','hifz'] && short(d.category,80) && short(d.status,80) && d.behavior in ['none','missed','complete','made-up'] && short(d.note,1000) && d.updatedAt == request.time && d.surah is int && d.fromAyah is int && d.toAyah is int && d.juz is int &&
+    ((d.type == 'hifz' && d.surah>=1 && d.surah<=114 && d.fromAyah>=1 && d.toAyah>=d.fromAyah && d.toAyah<=286 && d.juz>=1 && d.juz<=30) || (d.type != 'hifz' && d.surah==0 && d.fromAyah==0 && d.toAyah==0 && d.juz==0)) &&
+    (d.type != 'namaz' || d.category in ['Fajr','Zohar–Asar','Maghrib–Ishaa']);
+  }
+  function paymentFields(d) {
+   return (!('paymentUpi' in d) || (short(d.paymentUpi,193) && (d.paymentUpi == '' || d.paymentUpi.matches('[A-Za-z0-9._-]{2,128}@[A-Za-z0-9.-]{2,64}')))) && (!('paymentName' in d) || short(d.paymentName,80)) && (!('paymentEnabled' in d) || d.paymentEnabled is bool);
+  }
+  match /users/{uid} {
+   allow read: if owner(uid);
+   allow create,update: if owner(uid) && paymentFields(request.resource.data);
+   allow delete: if false;
+   match /journalEntries/{id} {
+    allow read,delete: if owner(uid);
+    allow create,update: if owner(uid) && entry(request.resource.data,id);
+   }
+   match /journalPhotos/{id} {
+    allow read,delete: if owner(uid);
+    allow create,update: if owner(uid) && photos(request.resource.data,id);
+   }
+   match /journalOptions/{id} {
+    allow read,delete: if owner(uid);
+    allow create,update: if owner(uid) && option(request.resource.data);
+   }
+   match /dailyTrackers/{id} {
+    allow read,delete: if owner(uid);
+    allow create,update: if owner(uid) && tracker(request.resource.data);
+   }
+   // Preserve established app collection access. Server-only mail receipts and
+   // password reset/admin records are deliberately excluded.
+   match /{collection}/{id} {
+    allow read,write: if owner(uid) && collection in ['tasks','timetable','transactions','wallets','categoryBudgets','loans','subscriptions','billSplits','sleep','workouts','meals','bodyMetrics','healthSettings','mealPlans','workoutSessions','notificationSettings','pushSubscriptions'];
+   }
+  }
+ }
 }

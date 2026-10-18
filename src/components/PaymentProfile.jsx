@@ -1,0 +1,11 @@
+import React,{useState,useEffect} from 'react';
+import {doc,onSnapshot,setDoc} from 'firebase/firestore';
+import {db} from '../firebase';
+import {Card,Field,PrimaryButton} from './primitives';
+import {inputStyle} from '../theme';
+export default function PaymentProfile({t,user}){
+ const [upi,setUpi]=useState(''),[name,setName]=useState(''),[enabled,setEnabled]=useState(false),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ useEffect(()=>onSnapshot(doc(db,'users',user.uid),s=>{const d=s.data()||{};setUpi(d.paymentUpi||'');setName(d.paymentName||'');setEnabled(d.paymentEnabled===true);setLoaded(true);},()=>setMessage('Could not load payment settings.')),[user.uid]);
+ async function save(){setBusy(true);setMessage('');try{if((enabled||upi.trim())&&(!/^[A-Za-z0-9._-]{2,128}@[A-Za-z0-9.-]{2,64}$/.test(upi.trim())||!name.trim()))throw Error('Enter a valid UPI ID and payee name.');await setDoc(doc(db,'users',user.uid),{paymentUpi:upi.trim(),paymentName:name.trim(),paymentEnabled:enabled},{merge:true});setMessage('Payment settings saved.');}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+ return <Card t={t}><h2>Receive repayments</h2><p style={{color:t.muted}}>Add the UPI ID shown in Google Pay or another UPI app. Borrowers can use Pay Now in your loan reminder email to see a QR and open their UPI app.</p><Field t={t} label="UPI ID"><input style={inputStyle(t)} maxLength={193} placeholder="yourname@bank" value={upi} onChange={e=>setUpi(e.target.value)}/></Field><Field t={t} label="Payee name"><input style={inputStyle(t)} maxLength={80} value={name} onChange={e=>setName(e.target.value)}/></Field><label style={{display:'flex',gap:10,marginBottom:16}}><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>Include these payment details in emails for money I have lent.</label><p style={{fontSize:12,color:t.muted}}>Verify the UPI ID carefully. A payment link does not verify receipt or automatically settle a loan. Split bills keep their individual repayment details; your UPI ID is never assigned to another lender.</p><PrimaryButton t={t} disabled={busy||!loaded} onClick={save}>Save payment details</PrimaryButton>{message&&<p role="status">{message}</p>}</Card>;
+}

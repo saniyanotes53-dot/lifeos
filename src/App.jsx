@@ -22,6 +22,7 @@ import { useT, PALETTES } from "./theme";
 import { onAuthChange, logout } from "./auth";
 import { ensureUserProfile, watchCollection, updateItem } from "./firestore";
 
+const JournalScreen=lazy(()=>import('./components/JournalScreen'));
 import Dashboard from "./components/Dashboard";
 import TasksScreen from "./components/TasksScreen";
 const FocusStudio=lazy(()=>import("./components/FocusStudio"));
@@ -61,7 +62,12 @@ export default function App() {
   const t = useT(activeTheme, activeScheme);
 
   const [user, setUser] = useState(undefined); // undefined = checking, null = logged out, object = logged in
-  const [tab, setTab] = useState(() => ["timetable","budget"].includes(new URLSearchParams(window.location.search).get("view")) ? new URLSearchParams(window.location.search).get("view") : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
+  const [tab, updateTab] = useState(() => ["timetable","budget"].includes(new URLSearchParams(window.location.search).get("view")) ? new URLSearchParams(window.location.search).get("view") : "home"); // home, tasks, focus, health, budget, timetable, reports, profile
+  function setTab(next) {
+    if(next === tab) return;
+    if(!window.dispatchEvent(new Event('lifeos:before-navigation',{cancelable:true}))) return;
+    updateTab(next);
+  }
   const [showGuideModal, setShowGuideModal] = useState(false);
 
   // Pro feature modal states
@@ -155,7 +161,7 @@ export default function App() {
     ['home',Home,'Home'], ['tasks',ListChecks,'Tasks'], ['timetable',Clock,'Timetable'],
     ['budget',Wallet,'Budget'], ['assistant',MessageCircle,'Assistant'], ['more',MoreHorizontal,'More'],
   ];
-  const MORE = [['timetable',Clock,'Timetable','Plan time blocks and reminders'],['health',Moon,'Health','Sleep, workouts and meals'],['reports',BarChart3,'Reports','Review progress and export'],['focus',Headphones,'Focus','Timer and focus sessions'],['profile',User,'Settings','Account, theme and notifications']];
+  const MORE = [['journal',ListChecks,'Journal','Your diary, photos and daily trackers'],['plugins',Settings,'Plugins','Customize attendance, Namaz, Hifz and templates'],['timetable',Clock,'Timetable','Plan time blocks and reminders'],['health',Moon,'Health','Sleep, workouts and meals'],['reports',BarChart3,'Reports','Review progress and export'],['focus',Headphones,'Focus','Timer and focus sessions'],['profile',User,'Settings','Account, theme and notifications']];
 
   if(window.location.pathname === "/auth/action")return <EmailActionScreen t={t}/>;
 
@@ -488,6 +494,7 @@ export default function App() {
                 />
               )}
 
+              {["journal","plugins"].includes(tab) && <JournalScreen key={user.uid} t={t} user={user} pluginsOnly={tab==="plugins"} onOpenJournal={()=>setTab("journal")} onOpenPlugins={()=>setTab("plugins")}/> }
               {tab === "reports" && (
                 <ReportsScreen
                   t={t}
@@ -528,7 +535,7 @@ export default function App() {
               ['home',Home,'Home'],['tasks',ListChecks,'Tasks'],['budget',Wallet,'Budget'],
               ['assistant',MessageCircle,'Assistant'],['more',MoreHorizontal,'More']
             ].map(([key, Icon, label]) => {
-              const isActive = tab === key || (key === "more" && ["timetable","health","reports","focus","profile"].includes(tab));
+              const isActive = tab === key || (key === "more" && ["timetable","health","reports","focus","profile","journal","plugins"].includes(tab));
               return (
                 <button type="button"
                   key={key}

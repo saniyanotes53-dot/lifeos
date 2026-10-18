@@ -17,7 +17,7 @@ export async function reminderOwner(token,uid,request=fetch){
  const email=account.emailVerified&&validEmail(account.email)?account.email:'';
  const candidate=cleanName(profile.displayName);
  const name=(candidate&&candidate!=='User'?candidate:cleanName(account.displayName))||email;
- return name?{name,email,uid}:null;
+ return name?{name,email,uid,...(profile.paymentEnabled===true?{payment:{upi:profile.paymentUpi,name:profile.paymentName}}:{})}:null;
 }
 export function reminderRecipients(collection,r,owner={name:'Account owner',email:''}){
  if(!r.emailReminders||r.settled)return [];
@@ -27,7 +27,7 @@ export function reminderRecipients(collection,r,owner={name:'Account owner',emai
   if(!['lend','borrow'].includes(r.type)||!validEmail(r.email)||!Number.isFinite(Number(r.amount))||Number(r.amount)<=0)return [];
   const person=cleanName(r.person)||'Contact';
   const borrower=r.type==='lend'?person:senderName,lender=r.type==='lend'?senderName:person;
-  return [{...identity,email:r.email,name:person,title:'Loan repayment',kind:r.type==='lend'?'payable':'receivable',borrower,lender,dueDate:r.dueDate,text:`${borrower} owes ${lender} ₹${Number(r.amount).toFixed(2)}.`}];
+  return [{...identity,email:r.email,name:person,title:'Loan repayment',kind:r.type==='lend'?'payable':'receivable',payment:r.type==='lend'&&owner.payment?{...owner.payment,amount:Number(r.amount)}:null,borrower,lender,dueDate:r.dueDate,text:`${borrower} owes ${lender} ₹${Number(r.amount).toFixed(2)}.`}];
  }
  const {rows,transfers}=billLedger(r);
  if(!transfers.length)return [];
